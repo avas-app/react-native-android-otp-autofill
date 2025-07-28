@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "expo-sms-verify": ["../src/index"],
+      "expo-sms-verify/*": ["../src/*"]
+    }
+  }
+}
