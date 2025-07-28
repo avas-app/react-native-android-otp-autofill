@@ -51,7 +51,7 @@ export const useGetHash = (
 
   useEffect(() => {
     fetchHash()
-  }, [fetchHash])
+  }, [])
 
   return {
     hash,

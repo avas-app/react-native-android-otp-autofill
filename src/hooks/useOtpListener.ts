@@ -113,16 +113,11 @@ export const useOtpListener = (
       onError?.(errorMessage, -1)
       return () => {} // Return empty cleanup on error
     }
-  }, [isListening, onOtpReceived, onTimeout, onError, stopListener])
+  }, [isListening, stopListener])
 
-  useEffect(
-    () =>
-      // Cleanup on unmount
-      () => {
-        stopListener()
-      },
-    [stopListener],
-  )
+  useEffect(function cleanup() {
+    return stopListener
+  }, [stopListener])
 
   return {
     isListening,
