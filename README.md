@@ -1,4 +1,4 @@
-# Avas React Native OTP Autofill
+# React Native OTP Autofill
 
 An Expo module for automatic SMS verification using Android SMS Retriever API.
 
