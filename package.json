@@ -1,17 +1,17 @@
 {
-  "name": "@avas/react-native-otp-autofill",
-  "version": "1.0.0-beta.1",
+  "name": "@avas-app/react-native-otp-autofill",
+  "version": "0.0.1",
   "description": "Automatic SMS Verification with the SMS Retriever API",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "build": "expo-module build",
-    "clean": "expo-module clean",
-    "lint": "expo-module lint",
-    "test": "expo-module test",
-    "prepare": "expo-module prepare",
-    "prepublishOnly": "expo-module prepublishOnly",
-    "expo-module": "expo-module",
+    "build": "bunx expo-module build",
+    "clean": "bunx expo-module clean",
+    "lint": "bunx expo-module lint",
+    "test": "bunx expo-module test",
+    "prepare": "bunx expo-module prepare",
+    "prepublishOnly": "bunx expo-module prepublishOnly",
+    "expo-module": "bunx expo-module",
     "open:ios": "xed example/ios",
     "open:android": "open -a \"Android Studio\" example/android"
   },
@@ -21,7 +21,7 @@
     "react-native-otp-autofill",
     "AvasOtpAutofill"
   ],
-  "author": "avas <mail@avas.dev> (https://github.com/avas-app)",
+  "author": "Avas App <engineering@avas.dev> (https://github.com/avas-app)",
   "homepage": "https://github.com/avas-app/react-native-android-otp-autofill#readme",
   "license": "MIT",
   "devDependencies": {
