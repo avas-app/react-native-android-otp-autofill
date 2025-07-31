@@ -3,7 +3,7 @@ name: Publish to GitHub Packages
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   publish:
@@ -19,12 +19,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@avas-app"
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@avas-app'
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 

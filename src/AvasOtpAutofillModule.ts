@@ -11,7 +11,7 @@ const AvasOtpAutofillModule: AvasOtpAutofillModulesType = {
   addListener: () =>
     ({
       remove: () => {},
-    }) as EventSubscription,
+    } as EventSubscription),
 }
 
 export default AvasOtpAutofillModule

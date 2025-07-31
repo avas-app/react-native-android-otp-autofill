@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { AvasOtpAutofillModule } from '../otp-autofill'
+import { AvasOtpAutofillModule } from '../module'
 
 export interface UseGetHashOptions {
   onSuccess?: (value: string) => void
@@ -14,6 +14,13 @@ export interface UseGetHashReturn {
   refetch: () => Promise<void>
 }
 
+/**
+ * @param options - The options for the useGetHash hook.
+ * @param options.onSuccess - The callback to call when the hash is successfully fetched. This callback must be wrapped in useCallback.
+ * @param options.onError - The callback to call when the hash fails to fetch. This callback must be wrapped in useCallback.
+ *
+ * @returns The hash, loading state, error, and refetch function.
+ */
 export const useGetHash = (
   options: UseGetHashOptions = {},
 ): UseGetHashReturn => {
@@ -47,11 +54,11 @@ export const useGetHash = (
     } finally {
       setLoading(false)
     }
-  }, [onError, onSuccess])
+  }, [onSuccess, onError])
 
   useEffect(() => {
     fetchHash()
-  }, [])
+  }, [fetchHash])
 
   return {
     hash,

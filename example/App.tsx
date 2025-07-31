@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { useCallback, useState } from 'react'
 import { useGetHash, useOtpListener } from '../src'
-import { useEffect, useState } from 'react'
 
 import { StatusBar } from 'expo-status-bar'
 
@@ -22,21 +22,26 @@ type StatusMessage = {
 export default function App() {
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([])
 
-  // Use the new hooks
+  // ! Ensure that the callbacks are not recreated on every render
+  const onSuccessHash = useCallback((hash: string) => {
+    addStatusMessage('success', `App hash loaded: ${hash.substring(0, 8)}...`)
+  }, [])
+  const onErrorHash = useCallback((error: Error) => {
+    addStatusMessage('error', `Failed to load app hash: ${error.message}`)
+  }, [])
+
+  // * App Hash
   const {
     hash: appHash,
     loading: hashLoading,
     error: hashError,
     refetch: refetchHash,
   } = useGetHash({
-    onSuccess: (hash) => {
-      addStatusMessage('success', `App hash loaded: ${hash.substring(0, 8)}...`)
-    },
-    onError: (error) => {
-      addStatusMessage('error', `Failed to load app hash: ${error.message}`)
-    },
+    onSuccess: onSuccessHash,
+    onError: onErrorHash,
   })
 
+  // * SMS/OTP Listener
   const {
     isListening,
     loading: otpLoading,
@@ -47,13 +52,38 @@ export default function App() {
     stopListener,
   } = useOtpListener({
     onOtpReceived: (otp, message) => {
+      console.log('OTP Received:', otp, message)
       addStatusMessage('success', `OTP Received: ${otp}`)
     },
     onTimeout: (message) => {
+      console.log('Timeout:', message)
       addStatusMessage('error', 'SMS verification timed out. Please try again.')
     },
     onError: (error, code) => {
-      addStatusMessage('error', `Error: ${error} (Code: ${code})`)
+      console.log('Error:', error, code)
+      let errorMessage = `Error: ${error}`
+
+      // Add specific error messages based on error codes
+      switch (code) {
+        case -1001:
+          errorMessage = 'SMS receiver error: Invalid intent data'
+          break
+        case -1002:
+          errorMessage = 'SMS receiver error: Invalid status'
+          break
+        case -1003:
+          errorMessage = 'SMS receiver error: Status parsing failed'
+          break
+        case -1004:
+          errorMessage = 'SMS receiver error: Empty message'
+          break
+        default:
+          if (code !== -1) {
+            errorMessage += ` (Code: ${code})`
+          }
+      }
+
+      addStatusMessage('error', errorMessage)
     },
   })
 
@@ -69,10 +99,6 @@ export default function App() {
   const clearStatusMessages = () => {
     setStatusMessages([])
   }
-
-  useEffect(() => {
-    // Component initialization is now handled by hooks
-  }, [])
 
   const copyAppHash = async () => {
     if (appHash) {
@@ -91,6 +117,7 @@ export default function App() {
       await startListener()
       addStatusMessage('info', 'SMS Listener Started - Waiting for SMS...')
     } catch (error) {
+      console.error(error)
       addStatusMessage('error', 'Failed to start SMS listener')
     }
   }
@@ -127,12 +154,30 @@ export default function App() {
             </Text>
             {appHash && <Text style={styles.copyHint}>Tap to copy</Text>}
           </TouchableOpacity>
+
+          <View style={styles.hashButtonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.secondaryButton,
+                hashLoading && styles.buttonDisabled,
+              ]}
+              onPress={refetchHash}
+              disabled={hashLoading}
+            >
+              {hashLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Refresh Hash</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.helpText}>
-            Include this hash in your SMS messages for automatic detection
+            Include this hash in your SMS messages for automatic detection{'\n'}
+            The module will automatically retry failed operations up to 3 times.
           </Text>
         </View>
-
-        {/* Phone Number Hint Section - Removed for simplicity */}
 
         {/* SMS Listener Section */}
         <View style={styles.section}>
@@ -264,9 +309,13 @@ export default function App() {
           <Text style={styles.instructionText}>
             1. Copy your app hash from above{'\n'}
             2. Start the SMS listener{'\n'}
-            3. Send an SMS to this device with the format:{'\n'}
-            "Your OTP is 123456 {appHash}"{'\n\n'}
-            The SMS will be automatically detected and the OTP extracted.
+            3. Send an SMS to this device with any of these formats:{'\n'}•
+            &quot;Your OTP is 123456 {appHash}&quot;{'\n'}• &quot;Code: 123456{' '}
+            {appHash}&quot;{'\n'}• &quot;Verification code 123456 {appHash}
+            &quot;{'\n'}• &quot;123456&quot; (with hash in message){'\n\n'}
+            The SMS will be automatically detected and the OTP extracted.{'\n'}
+            The module supports various OTP formats and will retry failed
+            operations.
           </Text>
         </View>
       </ScrollView>
@@ -342,6 +391,10 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     gap: 10,
+  },
+  hashButtonContainer: {
+    marginTop: 10,
+    alignItems: 'center',
   },
   button: {
     backgroundColor: '#007AFF',

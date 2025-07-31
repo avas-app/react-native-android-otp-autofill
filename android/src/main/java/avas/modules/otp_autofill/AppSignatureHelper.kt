@@ -1,6 +1,7 @@
 package avas.modules.otp_autofill
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
@@ -10,76 +11,113 @@ class AppSignatureHelper(private val context: Context) {
   
   private val TAG = "AppSignatureHelper"
   
+  companion object {
+    private const val HASH_ALGORITHM = "SHA-256"
+    private const val HASH_BYTES_LENGTH = 9
+    private const val HASH_STRING_LENGTH = 11
+    private const val MAX_RETRY_ATTEMPTS = 3
+  }
+  
   fun getAppSignatures(): List<String> {
-    try {
-      val packageManager = context.packageManager
-      val packageName = context.packageName
-      
-      val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-        // Use GET_SIGNING_CERTIFICATES for API 28+
-        packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
-      } else {
-        // Use deprecated GET_SIGNATURES for older versions
-        @Suppress("DEPRECATION")
-        packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+    var lastException: Exception? = null
+    
+    for (attempt in 1..MAX_RETRY_ATTEMPTS) {
+      try {
+        return getAppSignaturesInternal()
+      } catch (e: PackageManager.NameNotFoundException) {
+        Log.e(TAG, "Package not found (attempt $attempt/$MAX_RETRY_ATTEMPTS)", e)
+        lastException = e
+      } catch (e: SecurityException) {
+        Log.e(TAG, "Security exception (attempt $attempt/$MAX_RETRY_ATTEMPTS)", e)
+        lastException = e
+      } catch (e: Exception) {
+        Log.e(TAG, "Unexpected error getting app signatures (attempt $attempt/$MAX_RETRY_ATTEMPTS)", e)
+        lastException = e
       }
       
-      val signatures = mutableListOf<String>()
-      
-      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-        // For API 28+, use signingInfo
-        packageInfo.signingInfo?.let { signingInfo ->
-          val signatureArray = if (signingInfo.hasMultipleSigners()) {
-            signingInfo.apkContentsSigners
-          } else {
-            signingInfo.signingCertificateHistory
-          }
-          
-          for (signature in signatureArray) {
-            val hash = getHash(packageName, signature.toCharsString())
-            if (hash != null) {
-              signatures.add(hash)
-            }
-          }
-        }
-      } else {
-        // For older versions, use deprecated signatures field
-        @Suppress("DEPRECATION")
-        packageInfo.signatures?.let { signatureArray ->
-          for (signature in signatureArray) {
-            val hash = getHash(packageName, signature.toCharsString())
-            if (hash != null) {
-              signatures.add(hash)
-            }
-          }
+      if (attempt < MAX_RETRY_ATTEMPTS) {
+        try {
+          Thread.sleep(100L * attempt) // Exponential backoff
+        } catch (e: InterruptedException) {
+          Thread.currentThread().interrupt()
+          break
         }
       }
-      
-      return signatures
-    } catch (e: Exception) {
-      Log.e(TAG, "Error getting app signatures", e)
-      return emptyList()
     }
+    
+    Log.e(TAG, "Failed to get app signatures after $MAX_RETRY_ATTEMPTS attempts", lastException)
+    return emptyList()
+  }
+  
+  private fun getAppSignaturesInternal(): List<String> {
+    val packageManager = context.packageManager
+    val packageName = context.packageName
+    
+    val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+      packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+    } else {
+      @Suppress("DEPRECATION")
+      packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+    }
+    
+    val signatures = mutableListOf<String>()
+    
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+      packageInfo.signingInfo?.let { signingInfo ->
+        val signatureArray = if (signingInfo.hasMultipleSigners()) {
+          signingInfo.apkContentsSigners
+        } else {
+          signingInfo.signingCertificateHistory
+        }
+        
+        signatureArray?.forEach { signature ->
+          getHash(packageName, signature.toCharsString())?.let { hash ->
+            signatures.add(hash)
+          }
+        }
+      } ?: run {
+        Log.w(TAG, "SigningInfo is null for API 28+")
+      }
+    } else {
+      @Suppress("DEPRECATION")
+      packageInfo.signatures?.forEach { signature ->
+        getHash(packageName, signature.toCharsString())?.let { hash ->
+          signatures.add(hash)
+        }
+      } ?: run {
+        Log.w(TAG, "Signatures array is null for older API")
+      }
+    }
+    
+    return signatures
   }
   
   private fun getHash(packageName: String, signature: String): String? {
     val appInfo = "$packageName $signature"
-    try {
-      val messageDigest = MessageDigest.getInstance("SHA-256")
+    return try {
+      val messageDigest = MessageDigest.getInstance(HASH_ALGORITHM)
       messageDigest.update(appInfo.toByteArray())
-      var hashSignature = messageDigest.digest()
+      val fullHash = messageDigest.digest()
       
-      // Need only first 9 bytes and encode it to base64
-      hashSignature = Arrays.copyOfRange(hashSignature, 0, 9)
-      val base64Hash = Base64.getEncoder().encodeToString(hashSignature)
+      // Take only first HASH_BYTES_LENGTH bytes and encode to base64
+      val truncatedHash = Arrays.copyOfRange(fullHash, 0, HASH_BYTES_LENGTH)
+      val base64Hash = Base64.getEncoder().encodeToString(truncatedHash)
       
-      // Make it URL safe
+      // Make it URL safe and truncate to HASH_STRING_LENGTH
       val urlSafeHash = base64Hash.replace("/", "_").replace("+", "-")
       
-      return urlSafeHash.substring(0, 11)
+      if (urlSafeHash.length >= HASH_STRING_LENGTH) {
+        urlSafeHash.substring(0, HASH_STRING_LENGTH)
+      } else {
+        Log.w(TAG, "Generated hash is shorter than expected: $urlSafeHash")
+        urlSafeHash
+      }
     } catch (e: NoSuchAlgorithmException) {
-      Log.e(TAG, "Hash algorithm not found", e)
-      return null
+      Log.e(TAG, "Hash algorithm $HASH_ALGORITHM not found", e)
+      null
+    } catch (e: Exception) {
+      Log.e(TAG, "Error generating hash", e)
+      null
     }
   }
 }
