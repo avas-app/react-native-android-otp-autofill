@@ -19,32 +19,24 @@ An Expo module for automatic SMS verification using Android SMS Retriever API.
 
 ## Installation
 
-This module is published to GitHub Packages and available as an npm package. To use it in your Expo/React Native app:
-
-### Setup GitHub Packages Registry
-
-First, add the GitHub Packages registry to your `.npmrc` file:
-
-```bash
-echo "@avas-app:registry=https://npm.pkg.github.com" >> .npmrc
-```
+This module is available as an npm package. To use it in your Expo/React Native app:
 
 ### npm
 
 ```bash
-npm install @avas-app/react-native-otp-autofill
+npm install @avasapp/react-native-otp-autofill
 ```
 
 ### bun
 
 ```bash
-bun add @avas-app/react-native-otp-autofill
+bun add @avasapp/react-native-otp-autofill
 ```
 
 ### yarn
 
 ```bash
-yarn add @avas-app/react-native-otp-autofill
+yarn add @avasapp/react-native-otp-autofill
 ```
 
 ### Quick Start
@@ -52,7 +44,7 @@ yarn add @avas-app/react-native-otp-autofill
 After installation, you can use the React hooks for the simplest integration:
 
 ```typescript
-import { useGetHash, useOtpListener } from '@avas-app/react-native-otp-autofill'
+import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 // In your component
 const { hash } = useGetHash()
@@ -69,7 +61,7 @@ The module provides React hooks for easy integration with modern React apps:
 
 ```typescript
 import React from 'react'
-import { useGetHash } from '@avas-app/react-native-otp-autofill'
+import { useGetHash } from '@avasapp/react-native-otp-autofill'
 
 const AppHashComponent = () => {
   const { hash, loading, error, refetch } = useGetHash({
@@ -97,7 +89,7 @@ const AppHashComponent = () => {
 
 ```typescript
 import React from 'react'
-import { useOtpListener } from '@avas-app/react-native-otp-autofill'
+import { useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const SmsVerificationComponent = () => {
   const {
@@ -147,7 +139,7 @@ const SmsVerificationComponent = () => {
 
 ```typescript
 import React, { useState } from 'react'
-import { useGetHash, useOtpListener } from '@avas-app/react-native-otp-autofill'
+import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const SmsVerificationFlow = () => {
   const [step, setStep] = useState<'hash' | 'sms' | 'complete'>('hash')
@@ -234,7 +226,7 @@ const SmsVerificationFlow = () => {
 For advanced use cases or when you need more control over event handling, you can use the manual API:
 
 ```typescript
-import AvasOtpAutofill from '@avas-app/react-native-otp-autofill'
+import AvasOtpAutofill from '@avasapp/react-native-otp-autofill'
 
 // Get app signature hash
 const getAppHash = async () => {
@@ -438,7 +430,7 @@ Where `FA+9qCX9VSu` is your app's signature hash.
 #### Using Hooks for Debugging
 
 ```typescript
-import { useGetHash, useOtpListener } from '@avas-app/react-native-otp-autofill'
+import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const DebugComponent = () => {
   const { hash, loading, error } = useGetHash({
@@ -478,7 +470,7 @@ const DebugComponent = () => {
 #### Manual Event Debugging
 
 ```typescript
-import { AvasOtpAutofillModule } from '@avas-app/react-native-otp-autofill'
+import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
 
 // Listen to all events for debugging
 AvasOtpAutofillModule.addListener('onSmsReceived', (event) => {
@@ -524,18 +516,14 @@ bun run test
 
 ### Publishing
 
-This package is published to GitHub Packages using GitHub Actions. To publish a new version:
+This package is published to the npm registry. To publish a new version:
 
 1. **Update the version** in `package.json`
-2. **Create and push a tag**:
+2. **Build and publish**:
    ```bash
-   git tag v0.0.2
-   git push origin v0.0.2
+   bun run build
+   npm publish --access public
    ```
-3. **GitHub Actions will automatically**:
-   - Build the module
-   - Run tests and linting
-   - Publish to GitHub Packages
 
 ### Local Development
 
@@ -546,7 +534,7 @@ For local development and testing:
 bun link
 
 # In your test project
-bun link @avas-app/react-native-otp-autofill
+bun link @avasapp/react-native-otp-autofill
 ```
 
 ## License
