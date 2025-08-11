@@ -1,5 +1,6 @@
 package avas.modules.otp_autofill
 
+import androidx.core.content.pm.PackageInfoCompat
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
@@ -52,41 +53,15 @@ class AppSignatureHelper(private val context: Context) {
   private fun getAppSignaturesInternal(): List<String> {
     val packageManager = context.packageManager
     val packageName = context.packageName
-    
-    val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-      packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-    } else {
-      @Suppress("DEPRECATION")
-      packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-    }
-    
+
     val signatures = mutableListOf<String>()
-    
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-      packageInfo.signingInfo?.let { signingInfo ->
-        val signatureArray = if (signingInfo.hasMultipleSigners()) {
-          signingInfo.apkContentsSigners
-        } else {
-          signingInfo.signingCertificateHistory
-        }
-        
-        signatureArray?.forEach { signature ->
-          getHash(packageName, signature.toCharsString())?.let { hash ->
-            signatures.add(hash)
-          }
-        }
-      } ?: run {
-        Log.w(TAG, "SigningInfo is null for API 28+")
+
+    PackageInfoCompat.getSignatures(packageManager, packageName)?.forEach { signature ->
+      getHash(packageName, signature.toCharsString())?.let { hash ->
+        signatures.add(hash)
       }
-    } else {
-      @Suppress("DEPRECATION")
-      packageInfo.signatures?.forEach { signature ->
-        getHash(packageName, signature.toCharsString())?.let { hash ->
-          signatures.add(hash)
-        }
-      } ?: run {
-        Log.w(TAG, "Signatures array is null for older API")
-      }
+    } ?: run {
+      Log.w(TAG, "Signatures not found")
     }
     
     return signatures
