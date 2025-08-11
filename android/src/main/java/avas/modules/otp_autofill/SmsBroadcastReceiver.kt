@@ -1,5 +1,6 @@
 package avas.modules.otp_autofill
 
+import androidx.core.os.BundleCompat
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -71,20 +72,8 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
       onCleanup?.invoke()
       return
     }
-    
-    val status = try {
-      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        extras.getParcelable(SmsRetriever.EXTRA_STATUS, Status::class.java)
-      } else {
-        @Suppress("DEPRECATION")
-        extras.getParcelable<Status>(SmsRetriever.EXTRA_STATUS)
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "❌ Error getting status from intent extras", e)
-      onError?.invoke("Error getting status: ${e.message}", ERROR_STATUS_PARSING)
-      onCleanup?.invoke()
-      return
-    }
+
+    val status = BundleCompat.getParcelable(extras, SmsRetriever.EXTRA_STATUS, Status::class.java)
     
     Log.d(TAG, "📊 SMS Retriever status: ${status?.statusCode}")
 
