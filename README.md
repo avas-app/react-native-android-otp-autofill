@@ -221,40 +221,118 @@ const SmsVerificationFlow = () => {
 }
 ```
 
-### Manual Event Management API
+### Manual API (no hooks)
 
-For advanced use cases or when you need more control over event handling, you can use the manual API:
+If you prefer direct control without hooks, use the module methods and event listeners:
 
 ```typescript
-import AvasOtpAutofill from '@avasapp/react-native-otp-autofill'
+import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
 
-// Get app signature hash
-const getAppHash = async () => {
+// Get app signature hash (use the first one)
+const getAppHash = async (): Promise<string | undefined> => {
   try {
-    const hashes = await AvasOtpAutofill.getHash()
+    const hashes = await AvasOtpAutofillModule.getHash()
     console.log('App signature hashes:', hashes)
-    return hashes[0] // Use the first hash
+    return hashes[0]
   } catch (error) {
     console.error('Error getting app hash:', error)
   }
 }
 
-// Start listening for SMS
+// Start listening for SMS and wire up events
 const startSmsListener = async () => {
-  try {
-    const subscription = await AvasOtpAutofill.startOtpListener(
-      (otp: string) => {
-        console.log('OTP received:', otp)
-        // Use the OTP for verification
-        verifyOTP(otp)
-      },
-    )
+  const subs = [] as import('expo-modules-core').EventSubscription[]
 
-    // Clean up when done
-    // subscription.remove();
-  } catch (error) {
-    console.error('Error starting SMS listener:', error)
+  subs.push(
+    AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
+      console.log('OTP received:', otp)
+      console.log('Full message:', message)
+      // ...verify with your backend
+    }),
+  )
+
+  subs.push(
+    AvasOtpAutofillModule.addListener('onTimeout', ({ message }) => {
+      console.log('SMS timeout:', message)
+    }),
+  )
+
+  subs.push(
+    AvasOtpAutofillModule.addListener('onError', ({ message, code }) => {
+      console.error('SMS error:', message, 'code:', code)
+    }),
+  )
+
+  await AvasOtpAutofillModule.startOtpListener()
+
+  // Return a cleanup function
+  return () => {
+    subs.forEach((s) => s.remove())
+    AvasOtpAutofillModule.stopSmsRetriever()
   }
+}
+```
+
+#### Manual example (React component)
+
+```tsx
+import React, { useRef, useState } from 'react'
+import { Button, Text, View } from 'react-native'
+import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
+
+export const ManualSmsVerification = () => {
+  const [otp, setOtp] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const cleanupRef = useRef<null | (() => void)>(null)
+
+  const start = async () => {
+    if (isListening) return
+    setIsListening(true)
+    setOtp(null)
+    setMessage(null)
+
+    // Register listeners first
+    const subs = [
+      AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
+        setOtp(otp ?? null)
+        setMessage(message)
+        setIsListening(false)
+        cleanup()
+      }),
+      AvasOtpAutofillModule.addListener('onTimeout', () => {
+        setIsListening(false)
+        cleanup()
+      }),
+      AvasOtpAutofillModule.addListener('onError', () => {
+        setIsListening(false)
+        cleanup()
+      }),
+    ]
+
+    const cleanup = () => {
+      subs.forEach((s) => s.remove())
+      AvasOtpAutofillModule.stopSmsRetriever()
+      cleanupRef.current = null
+    }
+
+    cleanupRef.current = cleanup
+    await AvasOtpAutofillModule.startOtpListener()
+  }
+
+  const stop = () => {
+    cleanupRef.current?.()
+    setIsListening(false)
+  }
+
+  return (
+    <View>
+      <Button title={isListening ? 'Listening…' : 'Start SMS Listener'} onPress={start} disabled={isListening} />
+      {isListening && <Button title="Stop" onPress={stop} />}
+      {otp && <Text>OTP: {otp}</Text>}
+      {message && <Text>Message: {message}</Text>}
+    </View>
+  )
 }
 ```
 
@@ -360,32 +438,31 @@ Requests a phone number hint (placeholder implementation).
 const hint = await AvasOtpAutofill.requestHint()
 ```
 
-#### `startOtpListener(handler: (otp: string) => void): Promise<EventSubscription>`
+#### `startOtpListener(): Promise<boolean>`
 
-Starts listening for SMS and calls the handler when an OTP is received.
+Starts listening for SMS using the Android SMS Retriever API.
 
 ```typescript
-const subscription = await AvasOtpAutofill.startOtpListener((otp) => {
-  console.log('Received OTP:', otp)
+await AvasOtpAutofillModule.startOtpListener()
+```
+
+#### `addListener(eventName, listener): EventSubscription`
+
+Adds a listener for module events. Call before `startOtpListener()`.
+
+```typescript
+const sub = AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
+  console.log('OTP:', otp, 'Message:', message)
 })
 ```
 
-#### `addListener(handler: (otp: string) => void): EventSubscription`
+#### Cleanup
 
-Adds a listener for SMS events without starting the retriever.
-
-```typescript
-const subscription = AvasOtpAutofill.addListener((otp) => {
-  console.log('Received OTP:', otp)
-})
-```
-
-#### `removeListener(): void`
-
-Removes all listeners and stops the SMS retriever.
+Use the returned subscription to remove listeners, and stop the retriever when done.
 
 ```typescript
-AvasOtpAutofill.removeListener()
+sub.remove()
+await AvasOtpAutofillModule.stopSmsRetriever()
 ```
 
 ### Events
@@ -395,6 +472,24 @@ The module emits the following events:
 - `onSmsReceived`: When an SMS is received with OTP
 - `onTimeout`: When SMS retriever times out (after 5 minutes)
 - `onError`: When an error occurs
+
+Event payloads:
+
+```ts
+type SmsReceivedEventPayload = {
+  message: string
+  otp: string | null
+}
+
+type TimeoutEventPayload = {
+  message: string
+}
+
+type ErrorEventPayload = {
+  message: string
+  code: number
+}
+```
 
 ## SMS Format Requirements
 
