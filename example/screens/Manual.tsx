@@ -28,8 +28,6 @@ const getAppHashManual = async (): Promise<string> => {
 
 let subscriptions: EventSubscription[] = []
 
-let i = 0
-
 const startOtpListenerManual = async (callbacks: {
   onOtpReceived: (otp: string, message: string) => void
   onTimeout: (message: string) => void
@@ -40,18 +38,18 @@ const startOtpListenerManual = async (callbacks: {
 
   const subReceived = AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
     if (otp) {
-      callbacks.onOtpReceived(otp, `listener ${i++}: ${message}`)
+      callbacks.onOtpReceived(otp, message)
     }
   })
   subscriptions.push(subReceived)
 
   const subTimeout = AvasOtpAutofillModule.addListener('onTimeout', ({ message }) => {
-    callbacks.onTimeout(`listener ${i++}: ${message}`)
+    callbacks.onTimeout(message)
   })
   subscriptions.push(subTimeout)
 
   const subError = AvasOtpAutofillModule.addListener('onError', ({ message, code }) => {
-    callbacks.onError(`listener ${i++}: ${message}`, code)
+    callbacks.onError(message, code)
   })
   subscriptions.push(subError)
 
