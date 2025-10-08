@@ -2,6 +2,9 @@
 
 An Expo module for automatic SMS verification using Android SMS Retriever API.
 
+![NPM Version](https://img.shields.io/npm/v/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge)
+
+
 ## Requirements
 
 - Android API 19+
