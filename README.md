@@ -2,7 +2,10 @@
 
 An Expo module for automatic SMS verification using Android SMS Retriever API.
 
-[![NPM Version](https://img.shields.io/npm/v/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge)](https://www.npmjs.com/package/@avasapp/react-native-otp-autofill)
+[![NPM Version](https://img.shields.io/npm/v/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23EA3F00)](https://www.npmjs.com/package/@avasapp/react-native-otp-autofill)
+[![npm bundle size](https://img.shields.io/bundlephobia/min/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23FFFFFF)](https://bundlephobia.com/package/@avasapp/react-native-otp-autofill)
+[![npm bundle size](https://img.shields.io/bundlephobia/minzip/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23FFFFFF)](https://bundlephobia.com/package/@avasapp/react-native-otp-autofill)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/avas-app/react-native-android-otp-autofill/publish.yml?style=for-the-badge)
 
 ## Requirements
 
