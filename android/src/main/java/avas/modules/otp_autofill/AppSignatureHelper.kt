@@ -74,18 +74,18 @@ class AppSignatureHelper(private val context: Context) {
       messageDigest.update(appInfo.toByteArray())
       val fullHash = messageDigest.digest()
       
-      // Take only first HASH_BYTES_LENGTH bytes and encode to base64
+      // Take only first HASH_BYTES_LENGTH bytes and encode to base64.
+      // The SMS Retriever app hash must be STANDARD base64 (alphabet A-Za-z0-9+/) —
+      // do NOT URL-safe encode it. The SMS Retriever service and consumers validate
+      // against ^[A-Za-z0-9+/=]{11}$, so replacing + / with - _ produces a rejected hash.
       val truncatedHash = Arrays.copyOfRange(fullHash, 0, HASH_BYTES_LENGTH)
       val base64Hash = Base64.getEncoder().encodeToString(truncatedHash)
-      
-      // Make it URL safe and truncate to HASH_STRING_LENGTH
-      val urlSafeHash = base64Hash.replace("/", "_").replace("+", "-")
-      
-      if (urlSafeHash.length >= HASH_STRING_LENGTH) {
-        urlSafeHash.substring(0, HASH_STRING_LENGTH)
+
+      if (base64Hash.length >= HASH_STRING_LENGTH) {
+        base64Hash.substring(0, HASH_STRING_LENGTH)
       } else {
-        Log.w(TAG, "Generated hash is shorter than expected: $urlSafeHash")
-        urlSafeHash
+        Log.w(TAG, "Generated hash is shorter than expected: $base64Hash")
+        base64Hash
       }
     } catch (e: NoSuchAlgorithmException) {
       Log.e(TAG, "Hash algorithm $HASH_ALGORITHM not found", e)
