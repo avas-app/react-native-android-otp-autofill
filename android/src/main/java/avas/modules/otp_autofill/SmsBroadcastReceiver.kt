@@ -36,14 +36,21 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
     const val ERROR_STATUS_PARSING = -1003
     const val ERROR_NULL_MESSAGE = -1004
     
+    // The SMS Retriever protocol always appends the 11-char app hash on the last line.
+    // Strip it before extraction: its digits are not the OTP, and for ~0.3% of signing
+    // keys a hash starting with 4+ digits would otherwise be picked up as the code
+    // (deterministically, per key — so it can pass QA on a debug key and ship broken).
+    private val HASH_LINE = Regex("\\s*\\n[A-Za-z0-9+/=]{11}\\s*$")
+
     // Prefer a code that immediately FOLLOWS an OTP keyword (word-bounded so "code"
-    // doesn't match inside "barcode"/"passcode-is-separate"), skipping only non-digit
-    // separators so a number appearing *before* the keyword can't win. The trailing
-    // (?!\d) / leading (?<!\d) guards prevent truncating a longer number to 4-8 digits.
+    // doesn't match inside "barcode"), skipping only non-digit separators so a number
+    // appearing *before* the keyword can't win. The gap excludes \n so it can never run
+    // past the end of the sentence onto a following line. The trailing (?!\d) / leading
+    // (?<!\d) guards prevent truncating a longer number down to 4-8 digits.
     // Since the SMS Retriever message is authored by our own backend, this is reliable;
     // if a fixed length is ever needed, thread it from JS and tighten \d{4,8} to \d{n}.
     private val KEYWORD_ANCHORED = Regex(
-      "\\b(?:otp|passcode|code|verification|pin|password|token)\\b[^0-9]{0,20}(\\d{4,8})(?!\\d)",
+      "\\b(?:otp|passcode|code|verification|pin|password|token|authenticate)\\b[^0-9\\n]{0,20}(\\d{4,8})(?!\\d)",
       RegexOption.IGNORE_CASE,
     )
     private val STANDALONE = Regex("(?<!\\d)(\\d{4,8})(?!\\d)")
@@ -117,9 +124,11 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
   }
 
   private fun extractOtpFromMessage(message: String): String? {
+    // Drop the trailing app-hash line first so neither pattern can read digits out of it.
+    val body = HASH_LINE.replace(message, "")
     // Prefer a code that follows an OTP keyword; only fall back to a standalone
     // digit run when no keyword-anchored code is present.
-    KEYWORD_ANCHORED.find(message)?.groupValues?.getOrNull(1)?.let { return it }
-    return STANDALONE.find(message)?.groupValues?.getOrNull(1)
+    KEYWORD_ANCHORED.find(body)?.groupValues?.getOrNull(1)?.let { return it }
+    return STANDALONE.find(body)?.groupValues?.getOrNull(1)
   }
 }
