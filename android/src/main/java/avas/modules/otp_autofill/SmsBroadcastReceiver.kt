@@ -36,22 +36,17 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
     const val ERROR_STATUS_PARSING = -1003
     const val ERROR_NULL_MESSAGE = -1004
     
-    private val OTP_PATTERNS = listOf(
-      // Standard 4-6 digit OTP patterns
-      Regex("\\b\\d{4,6}\\b"),
-      // OTP with common prefixes
-      Regex("(?:OTP|Code|Verification|PIN|Password)[:\\s]*([0-9]{4,6})", RegexOption.IGNORE_CASE),
-      // OTP with dashes or spaces
-      Regex("([0-9]{4,6})"),
-      // OTP in parentheses
-      Regex("\\(([0-9]{4,6})\\)"),
-      // OTP with dots
-      Regex("([0-9]{4,6})"),
+    // Prefer a code that immediately FOLLOWS an OTP keyword (word-bounded so "code"
+    // doesn't match inside "barcode"/"passcode-is-separate"), skipping only non-digit
+    // separators so a number appearing *before* the keyword can't win. The trailing
+    // (?!\d) / leading (?<!\d) guards prevent truncating a longer number to 4-8 digits.
+    // Since the SMS Retriever message is authored by our own backend, this is reliable;
+    // if a fixed length is ever needed, thread it from JS and tighten \d{4,8} to \d{n}.
+    private val KEYWORD_ANCHORED = Regex(
+      "\\b(?:otp|passcode|code|verification|pin|password|token)\\b[^0-9]{0,20}(\\d{4,8})(?!\\d)",
+      RegexOption.IGNORE_CASE,
     )
-    
-    private val OTP_CONTEXT_KEYWORDS = listOf(
-      "otp", "code", "verification", "pin", "password", "token", "authenticate"
-    )
+    private val STANDALONE = Regex("(?<!\\d)(\\d{4,8})(?!\\d)")
   }
   
   override fun onReceive(context: Context, intent: Intent) {
@@ -113,56 +108,18 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
       return
     }
     
-    Log.d(TAG, "📨✅ SMS received: $message")
+    // Never log the raw SMS body — it contains the OTP and Logcat is readable via
+    // READ_LOGS/adb on release builds.
+    Log.d(TAG, "📨✅ SMS received (len=${message.length})")
     val otp = extractOtpFromMessage(message)
+    Log.d(TAG, "🔍 OTP extracted: ${if (otp != null) "yes (len=${otp.length})" else "none"}")
     onSmsReceived?.invoke(message, otp)
   }
-  
+
   private fun extractOtpFromMessage(message: String): String? {
-    // First, try to find OTP with context clues
-    val contextOtp = findOtpWithContext(message)
-    if (contextOtp != null) {
-      Log.d(TAG, "🔍 Found OTP with context: $contextOtp")
-      return contextOtp
-    }
-    
-    // Fallback to pattern matching
-    for (pattern in OTP_PATTERNS) {
-      val matchResult = pattern.find(message)
-      if (matchResult != null) {
-        val otp = matchResult.groupValues.lastOrNull { it.matches(Regex("\\d{4,6}")) }
-        if (otp != null) {
-          Log.d(TAG, "🔍 Found OTP with pattern: $otp")
-          return otp
-        }
-      }
-    }
-    
-    Log.w(TAG, "🔍 No OTP found in message")
-    return null
-  }
-  
-  private fun findOtpWithContext(message: String): String? {
-    val lowerMessage = message.lowercase()
-    
-    // Look for OTP near context keywords
-    for (keyword in OTP_CONTEXT_KEYWORDS) {
-      val keywordIndex = lowerMessage.indexOf(keyword)
-      if (keywordIndex != -1) {
-        // Look for numbers near the keyword
-        val searchStart = maxOf(0, keywordIndex - 20)
-        val searchEnd = minOf(message.length, keywordIndex + 50)
-        val searchArea = message.substring(searchStart, searchEnd)
-        
-        // Try to find 4-6 digit numbers in this area
-        val numberPattern = Regex("\\b\\d{4,6}\\b")
-        val match = numberPattern.find(searchArea)
-        if (match != null) {
-          return match.value
-        }
-      }
-    }
-    
-    return null
+    // Prefer a code that follows an OTP keyword; only fall back to a standalone
+    // digit run when no keyword-anchored code is present.
+    KEYWORD_ANCHORED.find(message)?.groupValues?.getOrNull(1)?.let { return it }
+    return STANDALONE.find(message)?.groupValues?.getOrNull(1)
   }
 }

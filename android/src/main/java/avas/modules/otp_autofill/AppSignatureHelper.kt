@@ -4,9 +4,9 @@ import androidx.core.content.pm.PackageInfoCompat
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
+import android.util.Base64
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
-import java.util.*
 
 class AppSignatureHelper(private val context: Context) {
   
@@ -74,17 +74,19 @@ class AppSignatureHelper(private val context: Context) {
       messageDigest.update(appInfo.toByteArray())
       val fullHash = messageDigest.digest()
       
-      // Take only first HASH_BYTES_LENGTH bytes and encode to base64.
-      // The SMS Retriever app hash must be STANDARD base64 (alphabet A-Za-z0-9+/) —
-      // do NOT URL-safe encode it. The SMS Retriever service and consumers validate
-      // against ^[A-Za-z0-9+/=]{11}$, so replacing + / with - _ produces a rejected hash.
-      val truncatedHash = Arrays.copyOfRange(fullHash, 0, HASH_BYTES_LENGTH)
-      val base64Hash = Base64.getEncoder().encodeToString(truncatedHash)
+      // First HASH_BYTES_LENGTH bytes → STANDARD base64 (alphabet A-Za-z0-9+/), no
+      // padding/wrap → first HASH_STRING_LENGTH chars, per Google's SMS Retriever
+      // app-hash spec. Do NOT URL-safe encode: the provider validates against
+      // ^[A-Za-z0-9+/=]{11}$, so replacing + / with - _ produces a rejected hash.
+      // android.util.Base64 works on all minSdk levels (java.util.Base64 is API 26+
+      // and would NoClassDefFoundError on API 21–25).
+      val truncatedHash = fullHash.copyOfRange(0, HASH_BYTES_LENGTH)
+      val base64Hash = Base64.encodeToString(truncatedHash, Base64.NO_PADDING or Base64.NO_WRAP)
 
       if (base64Hash.length >= HASH_STRING_LENGTH) {
         base64Hash.substring(0, HASH_STRING_LENGTH)
       } else {
-        Log.w(TAG, "Generated hash is shorter than expected: $base64Hash")
+        Log.w(TAG, "Generated hash is shorter than expected")
         base64Hash
       }
     } catch (e: NoSuchAlgorithmException) {
