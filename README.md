@@ -9,9 +9,9 @@ An Expo module for automatic SMS verification using Android SMS Retriever API.
 
 ## Requirements
 
-- Android API 21+
+- Android API 23+ (24+ on Expo SDK 54+)
 - Google Play Services
-- Expo SDK 49+
+- Expo SDK 50+
 
 ## Features
 

@@ -34,7 +34,7 @@
   "scripts": {
     "build": "bunx expo-module build",
     "clean": "bunx expo-module clean",
-    "lint": "bunx expo-module lint",
+    "lint": "eslint src",
     "test": "bunx expo-module test",
     "prepare": "bunx expo-module prepare",
     "prepublishOnly": "bunx expo-module prepublishOnly",

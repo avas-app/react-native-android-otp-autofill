@@ -38,11 +38,15 @@ jobs:
         run: bun run lint
 
       - name: Typecheck
-        run: bunx tsc --noEmit
+        # Use the locally-resolved tsc: `bunx tsc` would silently fetch the unrelated
+        # (deprecated, TS 2.x) `tsc` package if the local one ever stopped hoisting,
+        # turning this gate into a no-op instead of failing.
+        run: ./node_modules/.bin/tsc --noEmit
 
       - run: bun run build
 
-      - name: Install latest npm for provenance
-        run: npm install -g npm@latest
-
+      # Node 20 ships npm 10, which supports --provenance. Provenance works with token
+      # auth given `id-token: write` above and a public repo; it does not replace auth.
       - run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
