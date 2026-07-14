@@ -427,7 +427,7 @@ const { isListening, receivedOtp, startListener, stopListener } =
 Returns the app signature hashes needed for SMS verification.
 
 ```typescript
-const hashes = await AvasOtpAutofill.getHash()
+const hashes = await AvasOtpAutofillModule.getHash()
 ```
 
 #### `startOtpListener(): Promise<boolean>`
@@ -502,6 +502,8 @@ FA+9qCX9VSu
 
 Where `FA+9qCX9VSu` is your app's signature hash.
 
+> **Note on the app hash:** The hash is an 11-character **standard** base64 string (alphabet `A-Za-z0-9+/`, matching the provider's `^[A-Za-z0-9+/=]{11}$` pattern). It is derived from your app's signing certificate, so it differs per build variant. For builds distributed through **Play App Signing**, the hash must be derived from the **"App signing key certificate"** in the Play Console — this differs from your upload/debug keystore, so a hash computed locally will not match production SMS. `useGetHash` reads the runtime hash for whichever build variant is currently running, so prefer it over hardcoding a value.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -517,6 +519,7 @@ Where `FA+9qCX9VSu` is your app's signature hash.
 #### Using Hooks for Debugging
 
 ```typescript
+import { Text, View } from 'react-native'
 import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const DebugComponent = () => {
@@ -543,13 +546,13 @@ const DebugComponent = () => {
   })
 
   return (
-    <div>
-      <p>Hash: {hash || 'Loading...'}</p>
-      <p>Listening: {isListening ? 'Yes' : 'No'}</p>
-      <p>OTP: {receivedOtp || 'None'}</p>
-      {error && <p>Hash Error: {error.message}</p>}
-      {smsError && <p>SMS Error: {smsError}</p>}
-    </div>
+    <View>
+      <Text>Hash: {hash || 'Loading...'}</Text>
+      <Text>Listening: {isListening ? 'Yes' : 'No'}</Text>
+      <Text>OTP: {receivedOtp || 'None'}</Text>
+      {error ? <Text>Hash Error: {error.message}</Text> : null}
+      {smsError ? <Text>SMS Error: {smsError}</Text> : null}
+    </View>
   )
 }
 ```
