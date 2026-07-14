@@ -21,6 +21,13 @@
   "type": "commonjs",
   "main": "build/index.js",
   "types": "build/index.d.ts",
+  "files": [
+    "build",
+    "android",
+    "src",
+    "expo-module.config.json",
+    "README.md"
+  ],
   "directories": {
     "example": "example"
   },
@@ -49,8 +56,8 @@
     "react-native": "0.79.5"
   },
   "peerDependencies": {
-    "expo": "*",
-    "react": "*",
-    "react-native": "*"
+    "expo": ">=50.0.0",
+    "react": ">=18.0.0",
+    "react-native": ">=0.74.0"
   }
 }

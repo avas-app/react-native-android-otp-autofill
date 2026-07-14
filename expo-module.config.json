@@ -1,8 +1,5 @@
 {
   "platforms": ["android"],
-  "apple": {
-    "modules": ["AvasOtpAutofillModule"]
-  },
   "android": {
     "modules": ["avas.modules.otp_autofill.AvasOtpAutofillModule"]
   }

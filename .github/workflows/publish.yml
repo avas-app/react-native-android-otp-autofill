@@ -25,5 +25,24 @@ jobs:
           bun-version: latest
 
       - run: bun install
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version v$PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
       - run: bun run build
-      - run: npm publish --access public
+
+      - name: Install latest npm for provenance
+        run: npm install -g npm@latest
+
+      - run: npm publish --access public --provenance

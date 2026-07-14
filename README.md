@@ -9,7 +9,7 @@ An Expo module for automatic SMS verification using Android SMS Retriever API.
 
 ## Requirements
 
-- Android API 19+
+- Android API 21+
 - Google Play Services
 - Expo SDK 49+
 
@@ -66,6 +66,7 @@ The module provides React hooks for easy integration with modern React apps:
 
 ```typescript
 import React from 'react'
+import { Button, Text, View } from 'react-native'
 import { useGetHash } from '@avasapp/react-native-otp-autofill'
 
 const AppHashComponent = () => {
@@ -78,14 +79,14 @@ const AppHashComponent = () => {
     },
   })
 
-  if (loading) return <p>Loading app hash...</p>
-  if (error) return <p>Error: {error.message}</p>
+  if (loading) return <Text>Loading app hash...</Text>
+  if (error) return <Text>Error: {error.message}</Text>
 
   return (
-    <div>
-      <p>App Hash: {hash}</p>
-      <button onClick={refetch}>Refresh Hash</button>
-    </div>
+    <View>
+      <Text>App Hash: {hash}</Text>
+      <Button title="Refresh Hash" onPress={refetch} />
+    </View>
   )
 }
 ```
@@ -94,6 +95,7 @@ const AppHashComponent = () => {
 
 ```typescript
 import React from 'react'
+import { Button, Text, View } from 'react-native'
 import { useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const SmsVerificationComponent = () => {
@@ -120,22 +122,24 @@ const SmsVerificationComponent = () => {
   })
 
   return (
-    <div>
-      <button onClick={startListener} disabled={isListening || loading}>
-        {loading
-          ? 'Starting...'
-          : isListening
-          ? 'Listening...'
-          : 'Start SMS Listener'}
-      </button>
+    <View>
+      <Button
+        title={
+          loading
+            ? 'Starting...'
+            : isListening
+            ? 'Listening...'
+            : 'Start SMS Listener'
+        }
+        onPress={startListener}
+        disabled={isListening || loading}
+      />
 
-      <button onClick={stopListener} disabled={!isListening}>
-        Stop Listener
-      </button>
+      <Button title="Stop Listener" onPress={stopListener} disabled={!isListening} />
 
-      {receivedOtp && <p>OTP: {receivedOtp}</p>}
-      {error && <p>Error: {error}</p>}
-    </div>
+      {receivedOtp ? <Text>OTP: {receivedOtp}</Text> : null}
+      {error ? <Text>Error: {error}</Text> : null}
+    </View>
   )
 }
 ```
@@ -144,6 +148,7 @@ const SmsVerificationComponent = () => {
 
 ```typescript
 import React, { useState } from 'react'
+import { Button, Text, TextInput, View } from 'react-native'
 import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
 
 const SmsVerificationFlow = () => {
@@ -191,37 +196,35 @@ const SmsVerificationFlow = () => {
 
   if (step === 'hash') {
     return (
-      <div>
-        <p>Preparing SMS verification...</p>
-        {hashLoading && <p>Loading...</p>}
-        {hashError && <p>Error: {hashError.message}</p>}
-        {hash && <p>Ready! Hash: {hash}</p>}
-      </div>
+      <View>
+        <Text>Preparing SMS verification...</Text>
+        {hashLoading ? <Text>Loading...</Text> : null}
+        {hashError ? <Text>Error: {hashError.message}</Text> : null}
+        {hash ? <Text>Ready! Hash: {hash}</Text> : null}
+      </View>
     )
   }
 
   if (step === 'sms') {
     return (
-      <div>
-        <input
-          type="tel"
+      <View>
+        <TextInput
+          keyboardType="phone-pad"
           placeholder="Phone number"
           value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
+          onChangeText={setPhoneNumber}
         />
-        <button onClick={sendSms} disabled={!phoneNumber}>
-          Send SMS
-        </button>
-        {isListening && <p>Waiting for SMS...</p>}
-      </div>
+        <Button title="Send SMS" onPress={sendSms} disabled={!phoneNumber} />
+        {isListening ? <Text>Waiting for SMS...</Text> : null}
+      </View>
     )
   }
 
   return (
-    <div>
-      <p>✅ Verification complete!</p>
-      <p>OTP: {receivedOtp}</p>
-    </div>
+    <View>
+      <Text>✅ Verification complete!</Text>
+      <Text>OTP: {receivedOtp}</Text>
+    </View>
   )
 }
 ```
@@ -333,9 +336,9 @@ export const ManualSmsVerification = () => {
   return (
     <View>
       <Button title={isListening ? 'Listening…' : 'Start SMS Listener'} onPress={start} disabled={isListening} />
-      {isListening && <Button title="Stop" onPress={stop} />}
-      {otp && <Text>OTP: {otp}</Text>}
-      {message && <Text>Message: {message}</Text>}
+      {isListening ? <Button title="Stop" onPress={stop} /> : null}
+      {otp ? <Text>OTP: {otp}</Text> : null}
+      {message ? <Text>Message: {message}</Text> : null}
     </View>
   )
 }
@@ -419,28 +422,12 @@ const { isListening, receivedOtp, startListener, stopListener } =
 
 ### Manual Methods
 
-#### `getOtp(): Promise<boolean>`
-
-Starts the SMS retriever and returns whether it was successfully started.
-
-```typescript
-const success = await AvasOtpAutofill.getOtp()
-```
-
 #### `getHash(): Promise<string[]>`
 
 Returns the app signature hashes needed for SMS verification.
 
 ```typescript
 const hashes = await AvasOtpAutofill.getHash()
-```
-
-#### `requestHint(): Promise<string>`
-
-Requests a phone number hint (placeholder implementation).
-
-```typescript
-const hint = await AvasOtpAutofill.requestHint()
 ```
 
 #### `startOtpListener(): Promise<boolean>`
