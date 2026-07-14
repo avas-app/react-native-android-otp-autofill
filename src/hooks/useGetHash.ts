@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Platform } from 'react-native'
 
 import { AvasOtpAutofillModule } from '../module'
 
@@ -15,11 +16,12 @@ export interface UseGetHashReturn {
 }
 
 /**
- * @param options - The options for the useGetHash hook.
- * @param options.onSuccess - The callback to call when the hash is successfully fetched. This callback must be wrapped in useCallback.
- * @param options.onError - The callback to call when the hash fails to fetch. This callback must be wrapped in useCallback.
+ * Fetches the app-signature hash used by the SMS Retriever API (Android only).
  *
- * @returns The hash, loading state, error, and refetch function.
+ * @param options.onSuccess - Called when the hash is fetched. Does NOT need to be
+ *   wrapped in useCallback — it's held in a ref.
+ * @param options.onError - Called when the fetch fails. Does NOT need to be wrapped.
+ * @returns The hash, loading state, error, and a stable refetch function.
  */
 export const useGetHash = (
   options: UseGetHashOptions = {},
@@ -28,9 +30,20 @@ export const useGetHash = (
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const { onSuccess, onError } = options
+  // Held in refs so inline callbacks don't recreate fetchHash and re-trigger the
+  // mount effect on every render (which would loop forever).
+  const onSuccessRef = useRef(options.onSuccess)
+  const onErrorRef = useRef(options.onError)
+  useEffect(() => {
+    onSuccessRef.current = options.onSuccess
+    onErrorRef.current = options.onError
+  }, [options.onSuccess, options.onError])
 
   const fetchHash = useCallback(async () => {
+    // The app-signature hash is Android-only; no-op elsewhere so non-Android
+    // callers get a clean "unsupported" signal instead of a spurious error.
+    if (Platform.OS !== 'android') return
+
     try {
       setLoading(true)
       setError(null)
@@ -40,21 +53,21 @@ export const useGetHash = (
       if (hashes && hashes.length > 0) {
         const appHash = hashes[0]
         setHash(appHash)
-        onSuccess?.(appHash)
+        onSuccessRef.current?.(appHash)
       } else {
-        const errorMessage = new Error('No app hash found')
-        setError(errorMessage)
-        onError?.(errorMessage)
+        const noHashError = new Error('No app hash found')
+        setError(noHashError)
+        onErrorRef.current?.(noHashError)
       }
     } catch (err) {
-      const error =
+      const fetchError =
         err instanceof Error ? err : new Error('Failed to get app hash')
-      setError(error)
-      onError?.(error)
+      setError(fetchError)
+      onErrorRef.current?.(fetchError)
     } finally {
       setLoading(false)
     }
-  }, [onSuccess, onError])
+  }, [])
 
   useEffect(() => {
     fetchHash()

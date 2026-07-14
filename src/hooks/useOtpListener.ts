@@ -4,6 +4,7 @@ import {
   TimeoutEventPayload,
 } from '../AvasOtpAutofill.types'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Platform } from 'react-native'
 
 import { AvasOtpAutofillModule } from '../module'
 
@@ -64,19 +65,23 @@ export const useOtpListener = (
   }, [cleanup])
 
   const startListener = useCallback(async () => {
+    // SMS Retriever is Android-only; no-op elsewhere.
+    if (Platform.OS !== 'android') return
+
     if (isListening) {
       if (__DEV__) console.warn('SMS listener is already active')
       return
     }
+
+    // Clear any prior run (subscriptions + native retriever) BEFORE flipping loading
+    // on, so cleanup's setLoading(false) can't cancel out our setLoading(true).
+    cleanup()
 
     try {
       setLoading(true)
       setError(null)
       setReceivedOtp(null)
       setReceivedMessage(null)
-
-      // Clean up any existing listeners
-      cleanup()
 
       // Set up event listeners
       const smsListener = AvasOtpAutofillModule.addListener(
@@ -125,9 +130,9 @@ export const useOtpListener = (
       if (__DEV__) console.error('Failed to start OTP listener:', err)
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to start OTP listener'
+      // Remove the listeners we just added (cleanup also clears loading/listening).
+      cleanup()
       setError(errorMessage)
-      setLoading(false)
-      setIsListening(false)
       onErrorRef.current?.(errorMessage, -1)
     }
   }, [isListening, cleanup])

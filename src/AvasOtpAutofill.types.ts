@@ -14,10 +14,6 @@ export type ErrorEventPayload = {
   code: number
 }
 
-export type UnsubscribeFunction = {
-  unsubscribe: () => void
-}
-
 export type AvasOtpAutofillModuleEvents = {
   onSmsReceived: (params: SmsReceivedEventPayload) => void
   onTimeout: (params: TimeoutEventPayload) => void
@@ -25,9 +21,7 @@ export type AvasOtpAutofillModuleEvents = {
 }
 
 export type AvasOtpAutofillModulesType = {
-  getOtp(): Promise<boolean>
   getHash(): Promise<string[]>
-  requestHint(): Promise<string>
   startOtpListener(): Promise<boolean>
   stopSmsRetriever(): Promise<string>
   addListener<T extends keyof AvasOtpAutofillModuleEvents>(
