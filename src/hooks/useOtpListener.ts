@@ -46,6 +46,16 @@ export const useOtpListener = (
 
   const eventSubscriptions = useRef<{ remove: () => void }[]>([])
 
+  // Mirrors isListening so startListener can guard on it without taking it as a
+  // dependency — otherwise startListener's identity flips every time the listen state
+  // changes, and a caller doing useEffect(() => { startListener() }, [startListener])
+  // would start a brand-new listener after every received OTP.
+  const isListeningRef = useRef(false)
+  const setListening = useCallback((value: boolean) => {
+    isListeningRef.current = value
+    setIsListening(value)
+  }, [])
+
   const cleanup = useCallback(() => {
     // Remove all event subscriptions
     eventSubscriptions.current.forEach((subscription) => subscription.remove())
@@ -56,9 +66,9 @@ export const useOtpListener = (
       if (__DEV__) console.error('Failed to stop SMS retriever:', err)
     })
 
-    setIsListening(false)
+    setListening(false)
     setLoading(false)
-  }, [])
+  }, [setListening])
 
   const stopListener = useCallback(() => {
     cleanup()
@@ -68,7 +78,7 @@ export const useOtpListener = (
     // SMS Retriever is Android-only; no-op elsewhere.
     if (Platform.OS !== 'android') return
 
-    if (isListening) {
+    if (isListeningRef.current) {
       if (__DEV__) console.warn('SMS listener is already active')
       return
     }
@@ -90,7 +100,7 @@ export const useOtpListener = (
           if (__DEV__) console.log('SMS received in hook:', event)
           setReceivedOtp(event.otp || null)
           setReceivedMessage(event.message)
-          setIsListening(false)
+          setListening(false)
           setLoading(false)
           onOtpReceivedRef.current?.(event.otp || '', event.message)
         },
@@ -101,7 +111,7 @@ export const useOtpListener = (
         (event: TimeoutEventPayload) => {
           if (__DEV__) console.log('Timeout in hook:', event)
           setError('SMS verification timed out')
-          setIsListening(false)
+          setListening(false)
           setLoading(false)
           onTimeoutRef.current?.(event.message)
         },
@@ -112,7 +122,7 @@ export const useOtpListener = (
         (event: ErrorEventPayload) => {
           if (__DEV__) console.log('Error in hook:', event)
           setError(event.message)
-          setIsListening(false)
+          setListening(false)
           setLoading(false)
           onErrorRef.current?.(event.message, event.code)
         },
@@ -121,10 +131,18 @@ export const useOtpListener = (
       // Store subscriptions for cleanup
       eventSubscriptions.current = [smsListener, timeoutListener, errorListener]
 
-      // Start the OTP listener
-      await AvasOtpAutofillModule.startOtpListener()
+      // Start the OTP listener. A resolved promise does NOT imply a registered
+      // receiver: the native side resolves false when the start was cancelled by a
+      // concurrent stop. Treating that as success would leave isListening=true with no
+      // receiver attached, and the already-active guard would then block every retry —
+      // silently killing autofill until remount.
+      const started = await AvasOtpAutofillModule.startOtpListener()
+      if (!started) {
+        cleanup()
+        return
+      }
 
-      setIsListening(true)
+      setListening(true)
       setLoading(false)
     } catch (err) {
       if (__DEV__) console.error('Failed to start OTP listener:', err)
@@ -135,7 +153,7 @@ export const useOtpListener = (
       setError(errorMessage)
       onErrorRef.current?.(errorMessage, -1)
     }
-  }, [isListening, cleanup])
+  }, [cleanup, setListening])
 
   // Cleanup on unmount
   useEffect(
