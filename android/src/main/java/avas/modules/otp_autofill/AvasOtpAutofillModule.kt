@@ -13,6 +13,7 @@ import com.google.android.gms.auth.api.phone.SmsRetriever
 import com.google.android.gms.tasks.Task
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 class AvasOtpAutofillModule : Module() {
 
@@ -31,6 +32,10 @@ class AvasOtpAutofillModule : Module() {
   private val startGeneration = AtomicInteger(0)
   // Dedicated handler for retry backoff so pending retries can be cancelled on stop.
   private val retryHandler = Handler(Looper.getMainLooper())
+  // The promise for the in-flight startOtpListener(), tracked so a stop() that cancels
+  // a pending retry can still settle it (otherwise the JS promise would hang forever).
+  // getAndSet(null) guarantees it is settled exactly once across every code path.
+  private val pendingStartPromise = AtomicReference<Promise?>(null)
 
   companion object {
     private const val MAX_RETRY_ATTEMPTS = 3
@@ -62,6 +67,11 @@ class AvasOtpAutofillModule : Module() {
     }
   }
 
+  // Settle (and clear) the tracked start promise exactly once. No-op if already settled.
+  private fun settleStart(action: (Promise) -> Unit) {
+    pendingStartPromise.getAndSet(null)?.let(action)
+  }
+
   private fun startSmsRetriever(promise: Promise, operation: String) {
     if (isListening.get()) {
       // A listener is already active. Treat start as an idempotent no-op rather than
@@ -72,21 +82,25 @@ class AvasOtpAutofillModule : Module() {
       return
     }
 
+    // Supersede any previous in-flight start so we only ever track one promise.
+    settleStart { it.resolve(false) }
+    pendingStartPromise.set(promise)
+
     val generation = startGeneration.incrementAndGet()
     Log.d(TAG, "🎧 Starting SMS Retriever for operation: $operation (gen $generation)")
-    startSmsRetrieverWithRetry(promise, operation, 1, generation)
+    startSmsRetrieverWithRetry(operation, 1, generation)
   }
 
-  private fun startSmsRetrieverWithRetry(promise: Promise, operation: String, attempt: Int, generation: Int) {
+  private fun startSmsRetrieverWithRetry(operation: String, attempt: Int, generation: Int) {
     if (generation != startGeneration.get()) {
       Log.d(TAG, "⏹️ Start (gen $generation) cancelled before attempt $attempt")
-      promise.resolve(false)
+      settleStart { it.resolve(false) }
       return
     }
 
     val reactContext = appContext.reactContext
     if (reactContext == null) {
-      promise.reject("NO_CONTEXT", "React context is not available", null)
+      settleStart { it.reject("NO_CONTEXT", "React context is not available", null) }
       return
     }
 
@@ -97,17 +111,17 @@ class AvasOtpAutofillModule : Module() {
       task.addOnSuccessListener {
         if (generation != startGeneration.get()) {
           Log.d(TAG, "⏹️ Start (gen $generation) cancelled — skipping receiver registration")
-          promise.resolve(false)
+          settleStart { it.resolve(false) }
           return@addOnSuccessListener
         }
         Log.d(TAG, "✅ SMS Retriever started successfully (attempt $attempt)")
-        registerSmsReceiver(promise)
+        registerSmsReceiver(generation)
       }
 
       task.addOnFailureListener { exception ->
         if (generation != startGeneration.get()) {
           Log.d(TAG, "⏹️ Start (gen $generation) cancelled after failure")
-          promise.resolve(false)
+          settleStart { it.resolve(false) }
           return@addOnFailureListener
         }
         Log.e(TAG, "❌ Failed to start SMS Retriever (attempt $attempt/$MAX_RETRY_ATTEMPTS)", exception)
@@ -115,15 +129,17 @@ class AvasOtpAutofillModule : Module() {
         if (attempt < MAX_RETRY_ATTEMPTS) {
           Log.d(TAG, "🔄 Retrying in ${RETRY_DELAY_MS}ms...")
           retryHandler.postDelayed({
-            startSmsRetrieverWithRetry(promise, operation, attempt + 1, generation)
+            startSmsRetrieverWithRetry(operation, attempt + 1, generation)
           }, RETRY_DELAY_MS * attempt) // Exponential backoff
         } else {
-          promise.reject("SMS_RETRIEVER_ERROR", "Failed to start SMS Retriever after $MAX_RETRY_ATTEMPTS attempts: ${exception.message}", exception)
+          settleStart {
+            it.reject("SMS_RETRIEVER_ERROR", "Failed to start SMS Retriever after $MAX_RETRY_ATTEMPTS attempts: ${exception.message}", exception)
+          }
         }
       }
     } catch (e: Exception) {
       Log.e(TAG, "💥 Unexpected error starting SMS Retriever", e)
-      promise.reject("SMS_RETRIEVER_ERROR", "Unexpected error: ${e.message}", e)
+      settleStart { it.reject("SMS_RETRIEVER_ERROR", "Unexpected error: ${e.message}", e) }
     }
   }
 
@@ -152,18 +168,26 @@ class AvasOtpAutofillModule : Module() {
     }
   }
 
-  private fun registerSmsReceiver(promise: Promise) {
+  private fun registerSmsReceiver(generation: Int) {
     val context = appContext.reactContext
     if (context == null) {
-      promise.reject("NO_CONTEXT", "React context is not available", null)
+      settleStart { it.reject("NO_CONTEXT", "React context is not available", null) }
       return
     }
 
     try {
       synchronized(receiverLock) {
+        // Re-check the generation *under the lock*: a stop() between the success
+        // callback's check and here would have bumped it, and registering anyway would
+        // leak a receiver the user already asked to stop (a TOCTOU on the guard).
+        if (generation != startGeneration.get()) {
+          Log.d(TAG, "⏹️ Start (gen $generation) cancelled — skipping registration (locked)")
+          settleStart { it.resolve(false) }
+          return
+        }
+
         // Clean up any existing receiver first. Use the plain unregister (not
-        // stopSmsRetriever) so we don't bump the generation and cancel the very
-        // start we're completing.
+        // stopSmsRetriever) so we don't bump the generation and cancel this start.
         unregisterReceiverLocked()
 
         val receiver = SmsBroadcastReceiver()
@@ -217,20 +241,21 @@ class AvasOtpAutofillModule : Module() {
       }
 
       Log.d(TAG, "📡 SMS receiver registered successfully")
-      promise.resolve(true)
+      settleStart { it.resolve(true) }
     } catch (e: Exception) {
       Log.e(TAG, "💥 Error registering SMS receiver", e)
       isListening.set(false)
-      promise.reject("RECEIVER_ERROR", "Failed to register SMS receiver: ${e.message}", e)
+      settleStart { it.reject("RECEIVER_ERROR", "Failed to register SMS receiver: ${e.message}", e) }
     }
   }
 
   private fun stopSmsRetriever() {
     // Cancel any in-flight start so its async success can't register a leaked receiver,
-    // drop any pending retry, tear down, and always clear the flag (even if no receiver
-    // was registered yet).
+    // drop any pending retry, and settle the start promise so it can't hang. Then tear
+    // down and always clear the flag (even if no receiver was registered yet).
     startGeneration.incrementAndGet()
     retryHandler.removeCallbacksAndMessages(null)
+    settleStart { it.resolve(false) }
     synchronized(receiverLock) {
       unregisterReceiverLocked()
     }
