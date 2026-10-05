@@ -35,7 +35,7 @@
     "build": "bunx expo-module build",
     "clean": "bunx expo-module clean",
     "lint": "eslint src",
-    "test": "bunx expo-module test",
+    "test": "EXPO_NONINTERACTIVE=1 bunx expo-module test --passWithNoTests",
     "prepare": "bunx expo-module prepare",
     "prepublishOnly": "bunx expo-module prepublishOnly",
     "expo-module": "bunx expo-module",

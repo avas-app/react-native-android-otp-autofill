@@ -108,7 +108,9 @@ To test the SMS autofill functionality:
 
 ### 2. Code Style
 
-This project uses ESLint for code formatting. Run the linter:
+Formatting follows the Prettier settings in `.prettierrc` (single quotes, no semicolons, trailing commas, 2-space indent). There is no format script, so format the files you edit with your editor's Prettier integration or `bunx prettier --write <files>`.
+
+ESLint checks the code in `src/`. Run it with:
 
 ```bash
 bun run lint
@@ -121,6 +123,8 @@ Run the test suite:
 ```bash
 bun run test
 ```
+
+There are no tests yet, so this currently passes with "No tests found". The script never starts Jest in watch mode. Put new tests in a root-level `__tests__/`; it sits outside the `files` allowlist, so it stays out of the published package (tests under `src/` would ship).
 
 ## Project Structure
 
@@ -163,7 +167,7 @@ react-native-android-otp-autofill/
 In the example app, all events are logged to the console. Check the Metro bundler logs or use `adb logcat` for Android logs:
 
 ```bash
-adb logcat -s "AvasOtpAutofill"
+adb logcat -s AvasOtpAutofillModule SmsBroadcastReceiver AppSignatureHelper
 ```
 
 ### 2. Common Issues

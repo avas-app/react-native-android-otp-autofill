@@ -9,7 +9,7 @@ An Expo module for automatic SMS verification using Android SMS Retriever API.
 
 ## Requirements
 
-- Android API 23+ (24+ on Expo SDK 54+)
+- Android API 23+ (24+ on Expo SDK 52+, which ships React Native 0.76). The module's own Gradle default is lower; the effective floor comes from Expo and React Native.
 - Google Play Services
 - Expo SDK 50+
 
@@ -487,7 +487,7 @@ type ErrorEventPayload = {
 
 For the SMS Retriever API to work, the SMS message must:
 
-1. Contain a verification code (4-6 digits)
+1. Contain a verification code (the module extracts a 4 to 8 digit code)
 2. Include your app's signature hash
 3. Be no longer than 140 bytes
 4. Contain a one-time code that the user has never seen before
@@ -606,14 +606,21 @@ bun run test
 
 ### Publishing
 
-This package is published to the npm registry. To publish a new version:
+Releases are published to npm by the [Publish Package](.github/workflows/publish.yml) GitHub Actions workflow, which runs when a tag starting with `v` is pushed. To release a new version:
 
-1. **Update the version** in `package.json`
-2. **Build and publish**:
+1. Bump `version` in `package.json` and commit it.
+2. Tag that commit with the same version prefixed by `v`, and push the tag:
    ```bash
-   bun run build
-   npm publish --access public
+   git tag v1.2.3
+   git push origin v1.2.3
    ```
+
+The workflow then:
+
+1. Installs dependencies with Bun.
+2. Fails if the tag does not match `v` plus the `package.json` version.
+3. Runs `bun run lint`, a typecheck (`./node_modules/.bin/tsc --noEmit`) and `bun run build`.
+4. Runs `npm publish --access public --provenance`, authenticated with the `NPM_TOKEN` repository secret.
 
 ### Local Development
 
