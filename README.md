@@ -91,12 +91,12 @@ controller.abort()
 
 ### `useOtp(options?)`
 
-| Option | Type | Default | |
-| --- | --- | --- | --- |
-| `autoStart` | `boolean` | `true` | Start listening on mount. |
-| `length` | `number` | | Exact code length. |
-| `pattern` | `RegExp` | | Custom matcher, instead of `length`. |
-| `onOtp` | `(otp, message) => void` | | Called when an SMS with a code arrives. Doesn't need to be memoized. |
+| Option      | Type                     | Default |                                                                      |
+| ----------- | ------------------------ | ------- | -------------------------------------------------------------------- |
+| `autoStart` | `boolean`                | `true`  | Start listening on mount.                                            |
+| `length`    | `number`                 |         | Exact code length.                                                   |
+| `pattern`   | `RegExp`                 |         | Custom matcher, instead of `length`.                                 |
+| `onOtp`     | `(otp, message) => void` |         | Called when an SMS with a code arrives. Doesn't need to be memoized. |
 
 Returns `{ status, otp, message, error, start, stop }`. `start()` replaces any wait in progress. `stop()` cancels it and goes back to `idle`. When an SMS arrives with no matching code, `status` is `received` and `otp` is null.
 
@@ -124,13 +124,13 @@ Sends log events to `fn`. See [Logging](#logging).
 
 Rejections are `OtpError`s with a `code`:
 
-| Code | Meaning |
-| --- | --- |
-| `UNSUPPORTED` | Not Android, or the native module isn't linked (e.g. Expo Go). |
+| Code          | Meaning                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `UNSUPPORTED` | Not Android, or the native module isn't linked (e.g. Expo Go).                             |
 | `UNAVAILABLE` | SMS Retriever couldn't start, usually because Google Play Services is missing or outdated. |
-| `TIMEOUT` | No matching SMS within 5 minutes. |
-| `ABORTED` | The signal aborted, or a newer wait replaced this one. |
-| `FAILED` | Anything else; see `message`. |
+| `TIMEOUT`     | No matching SMS within 5 minutes.                                                          |
+| `ABORTED`     | The signal aborted, or a newer wait replaced this one.                                     |
+| `FAILED`      | Anything else; see `message`.                                                              |
 
 ## Logging
 
@@ -155,18 +155,18 @@ setLogger(({ level, event, message, error, data }) => {
 
 Each event is `{ level, event, message, error?, data? }`:
 
-| Event | Level | When |
-| --- | --- | --- |
-| `wait.start` | debug | `waitForOtp` started; `data.length` and `data.customPattern` |
-| `wait.received` | info | A code was found; `data.elapsedMs`, `data.codeLength` |
-| `wait.no_match` | warn | An SMS arrived but no code matched. Usually the SMS format no longer fits `length` or `pattern`. `data.messageLength` |
-| `wait.timeout` | warn | No SMS within the retriever's window; `data.elapsedMs` |
-| `wait.aborted` | debug | Stopped, unmounted or replaced by a newer wait |
-| `wait.failed` | error | Play Services couldn't start the retriever, or another native failure; `error` is the `OtpError` |
-| `wait.invalid_options` | error | Bad `length` / `pattern` |
-| `wait.unsupported` | debug | Called on iOS or web, or without the native module |
-| `hash.missing` | warn | `getAppHash()` found no signing certificate |
-| `hash.failed` | error | `getAppHash()` threw |
+| Event                  | Level | When                                                                                                                  |
+| ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `wait.start`           | debug | `waitForOtp` started; `data.length` and `data.customPattern`                                                          |
+| `wait.received`        | info  | A code was found; `data.elapsedMs`, `data.codeLength`                                                                 |
+| `wait.no_match`        | warn  | An SMS arrived but no code matched. Usually the SMS format no longer fits `length` or `pattern`. `data.messageLength` |
+| `wait.timeout`         | warn  | No SMS within the retriever's window; `data.elapsedMs`                                                                |
+| `wait.aborted`         | debug | Stopped, unmounted or replaced by a newer wait                                                                        |
+| `wait.failed`          | error | Play Services couldn't start the retriever, or another native failure; `error` is the `OtpError`                      |
+| `wait.invalid_options` | error | Bad `length` / `pattern`                                                                                              |
+| `wait.unsupported`     | debug | Called on iOS or web, or without the native module                                                                    |
+| `hash.missing`         | warn  | `getAppHash()` found no signing certificate                                                                           |
+| `hash.failed`          | error | `getAppHash()` threw                                                                                                  |
 
 A logger that throws is caught, so it can't break the OTP flow. Call `setLogger(null)` to stop.
 
@@ -174,16 +174,16 @@ A logger that throws is caught, so it can't break the OTP flow. Call `setLogger(
 
 v2 is a Turbo Module, so it no longer depends on `expo`, and it needs React Native 0.76+ with the New Architecture.
 
-| v1 | v2 |
-| --- | --- |
-| `useGetHash()` → `{ hash }` | `getAppHash()` (returns one hash, not an array) |
-| `AvasOtpAutofill.getHash()` → `string[]` | `getAppHash()` → `string \| null` |
-| `addListener('onSmsReceived')` + `startOtpListener()` + `stopSmsRetriever()` | `useOtp()` or `waitForOtp({ signal })` |
-| `onTimeout` / `onError` events | `status` / `error` from `useOtp`, or the `OtpError` rejection |
-| `useOtpListener()` | `useOtp()` |
-| Filtering `otp.length === n` yourself | `length: n` |
-| Default export, `AvasOtpAutofill`, `AvasOtpAutofillModule` | Named exports only |
-| Deep imports like `/build/module` | Import from the package root |
+| v1                                                                           | v2                                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `useGetHash()` → `{ hash }`                                                  | `getAppHash()` (returns one hash, not an array)               |
+| `AvasOtpAutofill.getHash()` → `string[]`                                     | `getAppHash()` → `string \| null`                             |
+| `addListener('onSmsReceived')` + `startOtpListener()` + `stopSmsRetriever()` | `useOtp()` or `waitForOtp({ signal })`                        |
+| `onTimeout` / `onError` events                                               | `status` / `error` from `useOtp`, or the `OtpError` rejection |
+| `useOtpListener()`                                                           | `useOtp()`                                                    |
+| Filtering `otp.length === n` yourself                                        | `length: n`                                                   |
+| Default export, `AvasOtpAutofill`, `AvasOtpAutofillModule`                   | Named exports only                                            |
+| Deep imports like `/build/module`                                            | Import from the package root                                  |
 
 A v1 listener effect such as:
 

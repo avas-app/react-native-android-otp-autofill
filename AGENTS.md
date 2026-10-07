@@ -26,7 +26,8 @@ Bun (`bun.lock`), Node 22 (`.nvmrc`). `bun install` runs `bob build` via `prepar
 ```sh
 bun install
 bun run test       # jest, __tests__/
-bun run lint       # eslint.config.mjs; React Compiler rules are errors
+bun run lint       # oxlint (.oxlintrc.json); React Compiler rules are errors
+bun run format     # oxfmt (.oxfmtrc.json); format:check in CI
 bun run typecheck  # tsc, also checks example/src
 bun run build      # bob build -> lib/
 ```
@@ -44,7 +45,7 @@ Example app: `cd example && bun install && bun run android`. On the build box, b
 
 ## Releases
 
-`.github/workflows/publish.yml` publishes on a `v*` tag push: it checks the tag matches `package.json`, runs lint, typecheck, tests and build, then `npm publish --provenance`. Prerelease versions (with a `-`, e.g. `2.0.0-beta.0`) go to the `next` dist-tag, others to `latest`. There is no PR CI. A release is a `chore: release vX.Y.Z` commit bumping `package.json`, then a tag. Do not bump the version, tag or publish in a contribution.
+`.github/workflows/publish.yml` publishes on a `v*` tag push: it checks the tag matches `package.json`, runs lint, format check, typecheck, tests and build, then `npm publish --provenance`. Prerelease versions (with a `-`, e.g. `2.0.0-beta.0`) go to the `next` dist-tag, others to `latest`. There is no PR CI. A release is a `chore: release vX.Y.Z` commit bumping `package.json`, then a tag. Do not bump the version, tag or publish in a contribution.
 
 ## Compatibility
 
@@ -52,6 +53,7 @@ Peers: `react >= 18.3`, `react-native >= 0.76` (New Architecture). `android/buil
 
 ## Conventions
 
-- Prettier style from `.prettierrc`: single quotes, no semicolons, trailing commas, 2-space indent. Lint enforces it.
+- oxfmt style from `.oxfmtrc.json`: single quotes, no semicolons, trailing commas, 2-space indent. Run `bun run format`; the publish workflow runs `format:check`.
+- oxlint loads `eslint-plugin-react-hooks` as the `react-compiler` JS plugin, because native oxlint lacks the React Compiler rules. `eslint-disable` comments still work.
 - Commits use Conventional Commits: `fix: ...`, `feat: ...`, `build: ...`, `docs: ...`, `chore: ...`, with optional scopes.
 - PRs go into `main`. Test changes on a real Android device or emulator using the example app, and say how you tested.

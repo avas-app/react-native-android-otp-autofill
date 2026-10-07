@@ -1,5 +1,9 @@
 export type OtpErrorCode =
-  'UNSUPPORTED' | 'UNAVAILABLE' | 'TIMEOUT' | 'ABORTED' | 'FAILED'
+  | 'UNSUPPORTED'
+  | 'UNAVAILABLE'
+  | 'TIMEOUT'
+  | 'ABORTED'
+  | 'FAILED'
 
 export class OtpError extends Error {
   readonly code: OtpErrorCode

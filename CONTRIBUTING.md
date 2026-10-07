@@ -7,7 +7,8 @@ You need Node 22 (see `.nvmrc`), [Bun](https://bun.sh/), the Android SDK and an 
 ```sh
 bun install          # also builds lib/ through the prepare script
 bun run test         # Jest, in __tests__/
-bun run lint
+bun run lint         # oxlint
+bun run format       # oxfmt
 bun run typecheck
 bun run build        # bob build -> lib/
 ```
@@ -44,4 +45,4 @@ Listener lifecycle has caused bugs before. If you change `waitForOtp`, `useOtp` 
 
 ## Style and commits
 
-Prettier settings are in `.prettierrc` (single quotes, no semicolons, trailing commas); `bun run lint` enforces them. Commits follow Conventional Commits (`fix: ...`, `feat: ...`, `docs: ...`). Open PRs against `main` and say how you tested on Android.
+Formatting is oxfmt (`.oxfmtrc.json`: single quotes, no semicolons, trailing commas). Run `bun run format` before committing; CI runs `bun run format:check`. Commits follow Conventional Commits (`fix: ...`, `feat: ...`, `docs: ...`). Open PRs against `main` and say how you tested on Android.
