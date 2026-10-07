@@ -1,12 +1,15 @@
-import AvasOtpAutofill from './module'
-
-// * Export the hooks-based API
-export * from './hooks'
-
-// * Export all types
-export * from './AvasOtpAutofill.types'
-
-// * Export the otp-autofill module
-export { default as AvasOtpAutofill, AvasOtpAutofillModule } from './module'
-
-export default AvasOtpAutofill
+export {
+  getAppHash,
+  isSupported,
+  waitForOtp,
+  type OtpResult,
+  type WaitForOtpOptions,
+} from './api'
+export { extractOtp, type ExtractOtpOptions } from './extractOtp'
+export { OtpError, type OtpErrorCode } from './OtpError'
+export {
+  useOtp,
+  type OtpStatus,
+  type UseOtpOptions,
+  type UseOtpResult,
+} from './useOtp'
