@@ -1,12 +1,14 @@
 {
   "name": "@avasapp/react-native-otp-autofill",
-  "version": "1.1.0",
-  "description": "Automatic SMS Verification with the SMS Retriever API",
+  "version": "2.0.0-beta.0",
+  "description": "Automatic SMS verification with the Android SMS Retriever API",
   "keywords": [
     "react-native",
     "expo",
-    "react-native-otp-autofill",
-    "AvasOtpAutofill"
+    "android",
+    "otp",
+    "sms-retriever",
+    "turbo-module"
   ],
   "homepage": "https://github.com/avas-app/react-native-android-otp-autofill#readme",
   "bugs": {
@@ -18,46 +20,92 @@
   },
   "license": "MIT",
   "author": "Avas App <engineering@avas.dev> (https://github.com/avas-app)",
-  "type": "commonjs",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
-  "files": [
-    "build",
-    "android",
-    "src",
-    "expo-module.config.json",
-    "README.md"
-  ],
-  "directories": {
-    "example": "example"
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "avasapp-react-native-otp-autofill-source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
   },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "react-native.config.js",
+    "!android/build",
+    "!android/generated",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/__tests__",
+    "!**/__mocks__",
+    "!**/.*"
+  ],
   "scripts": {
-    "build": "bunx expo-module build",
-    "clean": "bunx expo-module clean",
-    "lint": "eslint src",
-    "test": "EXPO_NONINTERACTIVE=1 bunx expo-module test --passWithNoTests",
-    "prepare": "bunx expo-module prepare",
-    "prepublishOnly": "bunx expo-module prepublishOnly",
-    "expo-module": "bunx expo-module",
-    "open:ios": "xed example/ios",
-    "open:android": "open -a \"Android Studio\" example/android"
+    "build": "bob build",
+    "clean": "del-cli android/build example/android/build example/android/app/build lib",
+    "lint": "oxlint --deny-warnings",
+    "typecheck": "tsc",
+    "test": "jest",
+    "prepare": "bob build",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "devDependencies": {
-    "@types/react": "~19.0.14",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "eslint": "^9.32.0",
-    "eslint-config-expo": "^9.2.0",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
-    "eslint-plugin-react-native": "^5.0.0",
-    "expo": "^53.0.19",
-    "expo-module-scripts": "^4.1.9",
-    "react-native": "0.79.5"
+    "@react-native/babel-preset": "0.86.2",
+    "@react-native/jest-preset": "0.86.2",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jest": "^30.2.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-builder-bob": "^0.43.1",
+    "react-test-renderer": "19.2.3",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "expo": ">=50.0.0",
-    "react": ">=18.0.0",
-    "react-native": ">=0.74.0"
+    "react": ">=18.3.0",
+    "react-native": ">=0.76.0"
+  },
+  "jest": {
+    "preset": "@react-native/jest-preset",
+    "testMatch": [
+      "<rootDir>/__tests__/**/*.test.{ts,tsx}"
+    ]
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "OtpAutofillSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.avasapp.otpautofill"
+    }
   }
 }
