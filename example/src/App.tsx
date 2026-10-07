@@ -3,8 +3,14 @@ import { Button, ScrollView, StyleSheet, Text, View } from 'react-native'
 import {
   getAppHash,
   isSupported,
+  setLogger,
   useOtp,
 } from '@avasapp/react-native-otp-autofill'
+
+setLogger(({ level, event, data }) =>
+  // eslint-disable-next-line no-console
+  console.log(`[otp] ${level} ${event}`, JSON.stringify(data ?? {})),
+)
 
 export default function App() {
   // undefined while loading; null when the platform has no app hash.

@@ -116,6 +116,10 @@ The extraction `waitForOtp` uses, exported for tests and custom flows. It ignore
 
 True on Android when the native module is linked.
 
+### `setLogger(fn | null)`
+
+Sends log events to `fn`. See [Logging](#logging).
+
 ### `OtpError`
 
 Rejections are `OtpError`s with a `code`:
@@ -127,6 +131,44 @@ Rejections are `OtpError`s with a `code`:
 | `TIMEOUT` | No matching SMS within 5 minutes. |
 | `ABORTED` | The signal aborted, or a newer wait replaced this one. |
 | `FAILED` | Anything else; see `message`. |
+
+## Logging
+
+Pass a function to `setLogger` once at startup to send the library's events to Sentry, PostHog or any other tool. Events never include the SMS body or the code.
+
+```ts
+import * as Sentry from '@sentry/react-native'
+import { setLogger } from '@avasapp/react-native-otp-autofill'
+
+setLogger(({ level, event, message, error, data }) => {
+  if (level === 'error') {
+    Sentry.captureException(error ?? new Error(message), {
+      tags: { otp_event: event },
+      extra: data,
+    })
+  } else if (level !== 'debug') {
+    Sentry.addBreadcrumb({ category: 'otp', level, message, data })
+  }
+  posthog.capture(`otp_${event}`, { level, ...data })
+})
+```
+
+Each event is `{ level, event, message, error?, data? }`:
+
+| Event | Level | When |
+| --- | --- | --- |
+| `wait.start` | debug | `waitForOtp` started; `data.length` and `data.customPattern` |
+| `wait.received` | info | A code was found; `data.elapsedMs`, `data.codeLength` |
+| `wait.no_match` | warn | An SMS arrived but no code matched. Usually the SMS format no longer fits `length` or `pattern`. `data.messageLength` |
+| `wait.timeout` | warn | No SMS within the retriever's window; `data.elapsedMs` |
+| `wait.aborted` | debug | Stopped, unmounted or replaced by a newer wait |
+| `wait.failed` | error | Play Services couldn't start the retriever, or another native failure; `error` is the `OtpError` |
+| `wait.invalid_options` | error | Bad `length` / `pattern` |
+| `wait.unsupported` | debug | Called on iOS or web, or without the native module |
+| `hash.missing` | warn | `getAppHash()` found no signing certificate |
+| `hash.failed` | error | `getAppHash()` threw |
+
+A logger that throws is caught, so it can't break the OTP flow. Call `setLogger(null)` to stop.
 
 ## Migrating from v1
 

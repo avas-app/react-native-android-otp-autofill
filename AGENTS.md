@@ -6,7 +6,7 @@ Guidance for coding agents working on this repo. User-facing docs are in `README
 
 `@avasapp/react-native-otp-autofill` (the repo name differs from the package name): a React Native Turbo Module (New Architecture only) that wraps Android's SMS Retriever API. Android only; on iOS and web `isSupported` is false and nothing native is looked up. Works in bare RN and Expo dev builds; it has no `expo` dependency.
 
-Public surface (`src/index.ts`): `useOtp()`, `waitForOtp()`, `getAppHash()`, `extractOtp()`, `isSupported`, `OtpError` and their types. There is no default export.
+Public surface (`src/index.ts`): `useOtp()`, `waitForOtp()`, `getAppHash()`, `extractOtp()`, `isSupported`, `setLogger()`, `OtpError` and their types. There is no default export.
 
 ## Layout
 
@@ -14,6 +14,7 @@ Public surface (`src/index.ts`): `useOtp()`, `waitForOtp()`, `getAppHash()`, `ex
 - `src/native.android.ts` re-exports the spec module; `src/native.ts` is null for other platforms.
 - `src/api.ts`: `waitForOtp` maps native codes to `OtpError` codes (`CANCELLED` becomes `ABORTED`) and tracks the active wait so aborting a superseded wait can't stop a newer one.
 - `src/extractOtp.ts`: OTP extraction lives in JS, not Kotlin.
+- `src/logger.ts`: `setLogger` events, emitted from `src/api.ts`. Native failures reach JS as rejections, so there is no native log channel. Never put the SMS body or the code in an event; `__tests__/logger.test.ts` checks this.
 - `android/src/main/java/com/avasapp/otpautofill/`: `OtpAutofillModule.kt`, `SmsBroadcastReceiver.kt` (parses the intent only), `AppSignatureHelper.kt`, `OtpAutofillPackage.kt`.
 - `lib/`: `bob build` output, gitignored but published. `react-native.config.js` disables iOS autolinking.
 - `example/`: bare RN 0.86 app (not a workspace; own `bun install`) that links the library from `..` and resolves `src/` through the `avasapp-react-native-otp-autofill-source` export condition.

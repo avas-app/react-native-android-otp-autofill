@@ -1,4 +1,5 @@
 import { createOtpExtractor, type ExtractOtpOptions } from './extractOtp'
+import { log } from './logger'
 import native from './native'
 import { OtpError } from './OtpError'
 
@@ -24,9 +25,19 @@ export const isSupported = native != null
 export async function getAppHash(): Promise<string | null> {
   if (!native) return null
   try {
-    return await native.getAppHash()
-  } catch (error) {
-    throw toOtpError(error)
+    const hash = await native.getAppHash()
+    if (hash === null) {
+      log({
+        level: 'warn',
+        event: 'hash.missing',
+        message: 'The app has no signing certificate to hash',
+      })
+    }
+    return hash
+  } catch (cause) {
+    const error = toOtpError(cause)
+    log({ level: 'error', event: 'hash.failed', message: error.message, error })
+    throw error
   }
 }
 
@@ -41,9 +52,12 @@ export function waitForOtp(
 ): Promise<OtpResult> {
   const { signal, ...extractOptions } = options
   if (!native) {
-    return Promise.reject(
-      new OtpError('UNSUPPORTED', 'SMS Retriever is only available on Android'),
+    const error = new OtpError(
+      'UNSUPPORTED',
+      'SMS Retriever is only available on Android',
     )
+    log({ level: 'debug', event: 'wait.unsupported', message: error.message })
+    return Promise.reject(error)
   }
   if (signal?.aborted) {
     return Promise.reject(new OtpError('ABORTED', 'Aborted'))
@@ -51,7 +65,14 @@ export function waitForOtp(
   let extract: (message: string) => string | null
   try {
     extract = createOtpExtractor(extractOptions)
-  } catch (error) {
+  } catch (cause) {
+    const error = cause instanceof Error ? cause : new Error(String(cause))
+    log({
+      level: 'error',
+      event: 'wait.invalid_options',
+      message: error.message,
+      error,
+    })
     return Promise.reject(error)
   }
 
@@ -65,18 +86,69 @@ export function waitForOtp(
   }
   signal?.addEventListener('abort', onAbort)
 
+  const startedAt = Date.now()
+  log({
+    level: 'debug',
+    event: 'wait.start',
+    message: 'Waiting for an SMS',
+    data: {
+      ...(extractOptions.length !== undefined && {
+        length: extractOptions.length,
+      }),
+      customPattern: extractOptions.pattern !== undefined,
+    },
+  })
+
   return module
     .startListening()
     .then(
-      (message) => ({ message, otp: extract(message) }),
-      (error) => {
-        throw toOtpError(error)
+      (message) => {
+        const otp = extract(message)
+        const elapsedMs = Date.now() - startedAt
+        if (otp === null) {
+          log({
+            level: 'warn',
+            event: 'wait.no_match',
+            message: 'An SMS arrived but no code matched',
+            data: { elapsedMs, messageLength: message.length },
+          })
+        } else {
+          log({
+            level: 'info',
+            event: 'wait.received',
+            message: 'Received a code',
+            data: { elapsedMs, codeLength: otp.length },
+          })
+        }
+        return { message, otp }
+      },
+      (cause) => {
+        const error = toOtpError(cause)
+        logFailure(error, Date.now() - startedAt)
+        throw error
       },
     )
     .finally(() => {
       signal?.removeEventListener('abort', onAbort)
       if (activeWait === token) activeWait = null
     })
+}
+
+function logFailure(error: OtpError, elapsedMs: number) {
+  const data = { elapsedMs }
+  if (error.code === 'ABORTED') {
+    log({ level: 'debug', event: 'wait.aborted', message: error.message, data })
+  } else if (error.code === 'TIMEOUT') {
+    log({ level: 'warn', event: 'wait.timeout', message: error.message, data })
+  } else {
+    log({
+      level: 'error',
+      event: 'wait.failed',
+      message: error.message,
+      error,
+      data: { ...data, code: error.code },
+    })
+  }
 }
 
 function toOtpError(error: unknown): OtpError {
