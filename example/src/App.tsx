@@ -7,7 +7,8 @@ import {
 } from '@avasapp/react-native-otp-autofill'
 
 export default function App() {
-  const [hash, setHash] = useState<string | null>(null)
+  // undefined while loading; null when the platform has no app hash.
+  const [hash, setHash] = useState<string | null>()
   const [hashError, setHashError] = useState<string | null>(null)
   const [log, setLog] = useState<string[]>([])
 
@@ -26,7 +27,11 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>OTP autofill</Text>
         <Row label="Supported" value={String(isSupported)} />
-        <Row label="App hash" value={hash ?? hashError ?? '…'} selectable />
+        <Row
+          label="App hash"
+          value={hashError ?? (hash === undefined ? '…' : (hash ?? 'none'))}
+          selectable
+        />
 
         <View style={styles.buttons}>
           <Button title="Start" onPress={start} />
