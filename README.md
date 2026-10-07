@@ -5,6 +5,8 @@ Reads one-time codes from SMS on Android with the [SMS Retriever API](https://de
 [![NPM Version](https://img.shields.io/npm/v/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23EA3F00)](https://www.npmjs.com/package/@avasapp/react-native-otp-autofill)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/avas-app/react-native-android-otp-autofill/publish.yml?style=for-the-badge)
 
+<img src="docs/demo.gif" width="300" alt="An SMS arrives and the code fills in on its own" />
+
 ## Requirements
 
 - React Native 0.76+ with the New Architecture (Expo SDK 52+)
