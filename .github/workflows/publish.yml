@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write # Required for OIDC
   contents: read
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - uses: oven-sh/setup-bun@v2
@@ -37,16 +37,26 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Format
+        run: bun run format:check
+
       - name: Typecheck
-        # Use the locally-resolved tsc: `bunx tsc` would silently fetch the unrelated
-        # (deprecated, TS 2.x) `tsc` package if the local one ever stopped hoisting,
-        # turning this gate into a no-op instead of failing.
-        run: ./node_modules/.bin/tsc --noEmit
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
 
       - run: bun run build
 
-      # Node 20 ships npm 10, which supports --provenance. Provenance works with token
-      # auth given `id-token: write` above and a public repo; it does not replace auth.
-      - run: npm publish --access public --provenance
+      # Provenance works with token auth given `id-token: write` above and a public
+      # repo; it does not replace auth.
+      - name: Publish
+        run: |
+          # Without --tag, npm would make a prerelease the `latest` version.
+          case "$GITHUB_REF_NAME" in
+            *-*) TAG=next ;;
+            *) TAG=latest ;;
+          esac
+          npm publish --access public --provenance --tag "$TAG"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,638 +1,225 @@
 # React Native OTP Autofill
 
-An Expo module for automatic SMS verification using Android SMS Retriever API.
+Reads one-time codes from SMS on Android with the [SMS Retriever API](https://developers.google.com/identity/sms-retriever/overview), with no SMS permission. A React Native Turbo Module that works in bare React Native and Expo apps.
 
 [![NPM Version](https://img.shields.io/npm/v/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23EA3F00)](https://www.npmjs.com/package/@avasapp/react-native-otp-autofill)
-[![npm bundle size](https://img.shields.io/bundlephobia/min/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23FFFFFF)](https://bundlephobia.com/package/@avasapp/react-native-otp-autofill)
-[![npm bundle size](https://img.shields.io/bundlephobia/minzip/%40avasapp%2Freact-native-otp-autofill?style=for-the-badge&color=%23FFFFFF)](https://bundlephobia.com/package/@avasapp/react-native-otp-autofill)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/avas-app/react-native-android-otp-autofill/publish.yml?style=for-the-badge)
+
+<img src="docs/demo.gif" width="300" alt="An SMS arrives and the code fills in on its own" />
 
 ## Requirements
 
-- Android API 23+ (24+ on Expo SDK 52+, which ships React Native 0.76). The module's own Gradle default is lower; the effective floor comes from Expo and React Native.
-- Google Play Services
-- Expo SDK 50+
+- React Native 0.76+ with the New Architecture (Expo SDK 52+)
+- Android 7.0 (API 24)+ with Google Play Services
 
-## Features
-
-- ✅ Automatic SMS verification using Android SMS Retriever API
-- ✅ App signature hash generation for SMS verification
-- ✅ OTP extraction from SMS messages
-- ✅ Event-based listener system
-- ✅ TypeScript support
-- ✅ Expo modules API
+On iOS and web the library does nothing: `isSupported` is false and `waitForOtp` rejects with `UNSUPPORTED`. On iOS, set `textContentType="oneTimeCode"` on the input so the keyboard offers the code instead.
 
 ## Installation
 
-This module is available as an npm package. To use it in your Expo/React Native app:
-
-### npm
-
-```bash
+```sh
 npm install @avasapp/react-native-otp-autofill
 ```
 
-### bun
-
-```bash
-bun add @avasapp/react-native-otp-autofill
-```
-
-### yarn
-
-```bash
-yarn add @avasapp/react-native-otp-autofill
-```
-
-### Quick Start
-
-After installation, you can use the React hooks for the simplest integration:
-
-```typescript
-import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
-
-// In your component
-const { hash } = useGetHash()
-const { startListener, receivedOtp } = useOtpListener()
-```
+Bare React Native apps autolink it. Expo apps need a development build (`npx expo prebuild` or EAS Build); it does not work in Expo Go. No config plugin or permission is needed.
 
 ## Usage
 
-### React Hooks API (Recommended)
+### 1. Send the app hash with the SMS
 
-The module provides React hooks for easy integration with modern React apps:
-
-#### useGetHash Hook
-
-```typescript
-import React from 'react'
-import { Button, Text, View } from 'react-native'
-import { useGetHash } from '@avasapp/react-native-otp-autofill'
-
-const AppHashComponent = () => {
-  const { hash, loading, error, refetch } = useGetHash({
-    onSuccess: (hash) => {
-      console.log('App hash loaded:', hash)
-    },
-    onError: (error) => {
-      console.error('Failed to get app hash:', error)
-    },
-  })
-
-  if (loading) return <Text>Loading app hash...</Text>
-  if (error) return <Text>Error: {error.message}</Text>
-
-  return (
-    <View>
-      <Text>App Hash: {hash}</Text>
-      <Button title="Refresh Hash" onPress={refetch} />
-    </View>
-  )
-}
-```
-
-#### useOtpListener Hook
-
-```typescript
-import React from 'react'
-import { Button, Text, View } from 'react-native'
-import { useOtpListener } from '@avasapp/react-native-otp-autofill'
-
-const SmsVerificationComponent = () => {
-  const {
-    isListening,
-    loading,
-    receivedOtp,
-    receivedMessage,
-    error,
-    startListener,
-    stopListener,
-  } = useOtpListener({
-    onOtpReceived: (otp, message) => {
-      console.log('OTP received:', otp)
-      console.log('Full message:', message)
-      // Process the OTP
-    },
-    onTimeout: (message) => {
-      console.log('SMS timeout:', message)
-    },
-    onError: (error, code) => {
-      console.error('SMS error:', error, 'Code:', code)
-    },
-  })
-
-  return (
-    <View>
-      <Button
-        title={
-          loading
-            ? 'Starting...'
-            : isListening
-            ? 'Listening...'
-            : 'Start SMS Listener'
-        }
-        onPress={startListener}
-        disabled={isListening || loading}
-      />
-
-      <Button title="Stop Listener" onPress={stopListener} disabled={!isListening} />
-
-      {receivedOtp ? <Text>OTP: {receivedOtp}</Text> : null}
-      {error ? <Text>Error: {error}</Text> : null}
-    </View>
-  )
-}
-```
-
-#### Complete Example with Both Hooks
-
-```typescript
-import React, { useState } from 'react'
-import { Button, Text, TextInput, View } from 'react-native'
-import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
-
-const SmsVerificationFlow = () => {
-  const [step, setStep] = useState<'hash' | 'sms' | 'complete'>('hash')
-  const [phoneNumber, setPhoneNumber] = useState('')
-
-  // Get app hash first
-  const {
-    hash,
-    loading: hashLoading,
-    error: hashError,
-  } = useGetHash({
-    onSuccess: (hash) => {
-      console.log('Ready to send SMS with hash:', hash)
-      setStep('sms')
-    },
-  })
-
-  // Listen for SMS
-  const { isListening, receivedOtp, startListener, stopListener } =
-    useOtpListener({
-      onOtpReceived: (otp) => {
-        console.log('Verification complete:', otp)
-        setStep('complete')
-        stopListener()
-      },
-    })
-
-  const sendSms = async () => {
-    if (!hash) return
-
-    // Send SMS with your backend API
-    await fetch('/api/send-sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phoneNumber,
-        appHash: hash,
-      }),
-    })
-
-    // Start listening for SMS
-    startListener()
-  }
-
-  if (step === 'hash') {
-    return (
-      <View>
-        <Text>Preparing SMS verification...</Text>
-        {hashLoading ? <Text>Loading...</Text> : null}
-        {hashError ? <Text>Error: {hashError.message}</Text> : null}
-        {hash ? <Text>Ready! Hash: {hash}</Text> : null}
-      </View>
-    )
-  }
-
-  if (step === 'sms') {
-    return (
-      <View>
-        <TextInput
-          keyboardType="phone-pad"
-          placeholder="Phone number"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-        />
-        <Button title="Send SMS" onPress={sendSms} disabled={!phoneNumber} />
-        {isListening ? <Text>Waiting for SMS...</Text> : null}
-      </View>
-    )
-  }
-
-  return (
-    <View>
-      <Text>✅ Verification complete!</Text>
-      <Text>OTP: {receivedOtp}</Text>
-    </View>
-  )
-}
-```
-
-### Manual API (no hooks)
-
-If you prefer direct control without hooks, use the module methods and event listeners:
-
-```typescript
-import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
-
-// Get app signature hash (use the first one)
-const getAppHash = async (): Promise<string | undefined> => {
-  try {
-    const hashes = await AvasOtpAutofillModule.getHash()
-    console.log('App signature hashes:', hashes)
-    return hashes[0]
-  } catch (error) {
-    console.error('Error getting app hash:', error)
-  }
-}
-
-// Start listening for SMS and wire up events
-const startSmsListener = async () => {
-  const subs = [] as import('expo-modules-core').EventSubscription[]
-
-  subs.push(
-    AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
-      console.log('OTP received:', otp)
-      console.log('Full message:', message)
-      // ...verify with your backend
-    }),
-  )
-
-  subs.push(
-    AvasOtpAutofillModule.addListener('onTimeout', ({ message }) => {
-      console.log('SMS timeout:', message)
-    }),
-  )
-
-  subs.push(
-    AvasOtpAutofillModule.addListener('onError', ({ message, code }) => {
-      console.error('SMS error:', message, 'code:', code)
-    }),
-  )
-
-  await AvasOtpAutofillModule.startOtpListener()
-
-  // Return a cleanup function
-  return () => {
-    subs.forEach((s) => s.remove())
-    AvasOtpAutofillModule.stopSmsRetriever()
-  }
-}
-```
-
-#### Manual example (React component)
-
-```tsx
-import React, { useRef, useState } from 'react'
-import { Button, Text, View } from 'react-native'
-import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
-
-export const ManualSmsVerification = () => {
-  const [otp, setOtp] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-  const [isListening, setIsListening] = useState(false)
-  const cleanupRef = useRef<null | (() => void)>(null)
-
-  const start = async () => {
-    if (isListening) return
-    setIsListening(true)
-    setOtp(null)
-    setMessage(null)
-
-    // Register listeners first
-    const subs = [
-      AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
-        setOtp(otp ?? null)
-        setMessage(message)
-        setIsListening(false)
-        cleanup()
-      }),
-      AvasOtpAutofillModule.addListener('onTimeout', () => {
-        setIsListening(false)
-        cleanup()
-      }),
-      AvasOtpAutofillModule.addListener('onError', () => {
-        setIsListening(false)
-        cleanup()
-      }),
-    ]
-
-    const cleanup = () => {
-      subs.forEach((s) => s.remove())
-      AvasOtpAutofillModule.stopSmsRetriever()
-      cleanupRef.current = null
-    }
-
-    cleanupRef.current = cleanup
-    await AvasOtpAutofillModule.startOtpListener()
-  }
-
-  const stop = () => {
-    cleanupRef.current?.()
-    setIsListening(false)
-  }
-
-  return (
-    <View>
-      <Button title={isListening ? 'Listening…' : 'Start SMS Listener'} onPress={start} disabled={isListening} />
-      {isListening ? <Button title="Stop" onPress={stop} /> : null}
-      {otp ? <Text>OTP: {otp}</Text> : null}
-      {message ? <Text>Message: {message}</Text> : null}
-    </View>
-  )
-}
-```
-
-## API Reference
-
-### React Hooks
-
-#### `useGetHash(options?: UseGetHashOptions): UseGetHashReturn`
-
-A React hook for managing app signature hash retrieval with automatic loading states and error handling.
-
-**Options:**
-
-```typescript
-interface UseGetHashOptions {
-  onSuccess?: (value: string) => void
-  onError?: (error: Error) => void
-}
-```
-
-**Returns:**
-
-```typescript
-interface UseGetHashReturn {
-  hash: string | null // The app signature hash
-  loading: boolean // Whether hash is being fetched
-  error: Error | null // Any error that occurred
-  refetch: () => Promise<void> // Function to refetch the hash
-}
-```
-
-**Example:**
-
-```typescript
-const { hash, loading, error, refetch } = useGetHash({
-  onSuccess: (hash) => console.log('Hash:', hash),
-  onError: (error) => console.error('Error:', error),
-})
-```
-
-#### `useOtpListener(options?: UseOtpListenerOptions): UseOtpListenerReturn`
-
-A React hook for managing SMS OTP listening with automatic cleanup and state management.
-
-**Options:**
-
-```typescript
-interface UseOtpListenerOptions {
-  onOtpReceived?: (otp: string, message: string) => void
-  onTimeout?: (message: string) => void
-  onError?: (error: string, code: number) => void
-}
-```
-
-**Returns:**
-
-```typescript
-interface UseOtpListenerReturn {
-  isListening: boolean // Whether actively listening for SMS
-  loading: boolean // Whether starting/stopping listener
-  receivedOtp: string | null // Last received OTP
-  receivedMessage: string | null // Full SMS message
-  error: string | null // Any error message
-  startListener: () => Promise<void> // Start listening for SMS
-  stopListener: () => void // Stop listening and cleanup
-}
-```
-
-**Example:**
-
-```typescript
-const { isListening, receivedOtp, startListener, stopListener } =
-  useOtpListener({
-    onOtpReceived: (otp, message) => {
-      console.log('OTP:', otp, 'Message:', message)
-    },
-  })
-```
-
-### Manual Methods
-
-#### `getHash(): Promise<string[]>`
-
-Returns the app signature hashes needed for SMS verification.
-
-```typescript
-const hashes = await AvasOtpAutofillModule.getHash()
-```
-
-#### `startOtpListener(): Promise<boolean>`
-
-Starts listening for SMS using the Android SMS Retriever API.
-
-```typescript
-await AvasOtpAutofillModule.startOtpListener()
-```
-
-#### `addListener(eventName, listener): EventSubscription`
-
-Adds a listener for module events. Call before `startOtpListener()`.
-
-```typescript
-const sub = AvasOtpAutofillModule.addListener('onSmsReceived', ({ otp, message }) => {
-  console.log('OTP:', otp, 'Message:', message)
-})
-```
-
-#### Cleanup
-
-Use the returned subscription to remove listeners, and stop the retriever when done.
-
-```typescript
-sub.remove()
-await AvasOtpAutofillModule.stopSmsRetriever()
-```
-
-### Events
-
-The module emits the following events:
-
-- `onSmsReceived`: When an SMS is received with OTP
-- `onTimeout`: When SMS retriever times out (after 5 minutes)
-- `onError`: When an error occurs
-
-Event payloads:
-
-```ts
-type SmsReceivedEventPayload = {
-  message: string
-  otp: string | null
-}
-
-type TimeoutEventPayload = {
-  message: string
-}
-
-type ErrorEventPayload = {
-  message: string
-  code: number
-}
-```
-
-## SMS Format Requirements
-
-For the SMS Retriever API to work, the SMS message must:
-
-1. Contain a verification code (the module extracts a 4 to 8 digit code)
-2. Include your app's signature hash
-3. Be no longer than 140 bytes
-4. Contain a one-time code that the user has never seen before
-
-### Example SMS Format
+The SMS must end with your app's 11-character hash on its own line:
 
 ```
-Your verification code is: 123456
+Your code is 482913
 
 FA+9qCX9VSu
 ```
 
-Where `FA+9qCX9VSu` is your app's signature hash.
+Read the hash at runtime and send it to the backend that sends the SMS:
 
-> **Note on the app hash:** The hash is an 11-character **standard** base64 string (alphabet `A-Za-z0-9+/`, matching the provider's `^[A-Za-z0-9+/=]{11}$` pattern). It is derived from your app's signing certificate, so it differs per build variant. For builds distributed through **Play App Signing**, the hash must be derived from the **"App signing key certificate"** in the Play Console — this differs from your upload/debug keystore, so a hash computed locally will not match production SMS. `useGetHash` reads the runtime hash for whichever build variant is currently running, so prefer it over hardcoding a value.
+```ts
+import { getAppHash } from '@avasapp/react-native-otp-autofill'
 
-## Troubleshooting
+const hash = await getAppHash() // null on iOS and web
+```
 
-### Common Issues
+The hash comes from the signing certificate, so debug, upload and Play App Signing builds each have a different one. Read it at runtime instead of hardcoding it.
 
-1. **SMS not received**: Ensure your SMS includes the correct app signature hash
-2. **Module not found**: Make sure the module is properly installed and linked
-3. **Timeout errors**: SMS Retriever has a 5-minute timeout limit
-4. **Hooks not updating**: Make sure you're using the hooks inside React components
-5. **Multiple listeners**: Use `stopListener()` before starting a new listener
+### 2. Wait for the code
 
-### Debug Mode
+```tsx
+import { useOtp } from '@avasapp/react-native-otp-autofill'
 
-#### Using Hooks for Debugging
-
-```typescript
-import { Text, View } from 'react-native'
-import { useGetHash, useOtpListener } from '@avasapp/react-native-otp-autofill'
-
-const DebugComponent = () => {
-  const { hash, loading, error } = useGetHash({
-    onSuccess: (hash) => console.log('✅ Hash loaded:', hash),
-    onError: (error) => console.error('❌ Hash error:', error),
+function OtpScreen({ codeLength }: { codeLength: number }) {
+  const { otp, status, start } = useOtp({
+    length: codeLength,
+    onOtp: (code) => input.current?.setCode(code),
   })
 
-  const {
-    isListening,
-    receivedOtp,
-    receivedMessage,
-    error: smsError,
-  } = useOtpListener({
-    onOtpReceived: (otp, message) => {
-      console.log('📱 SMS received:', { otp, message })
-    },
-    onTimeout: (message) => {
-      console.log('⏰ SMS timeout:', message)
-    },
-    onError: (error, code) => {
-      console.error('❌ SMS error:', { error, code })
-    },
-  })
+  async function resend() {
+    await api.resendCode()
+    start() // the retriever delivers one SMS, so re-arm after a resend
+  }
 
-  return (
-    <View>
-      <Text>Hash: {hash || 'Loading...'}</Text>
-      <Text>Listening: {isListening ? 'Yes' : 'No'}</Text>
-      <Text>OTP: {receivedOtp || 'None'}</Text>
-      {error ? <Text>Hash Error: {error.message}</Text> : null}
-      {smsError ? <Text>SMS Error: {smsError}</Text> : null}
-    </View>
-  )
+  // status: 'idle' | 'listening' | 'received' | 'timeout' | 'error'
 }
 ```
 
-#### Manual Event Debugging
+`useOtp` starts listening on mount and stops on unmount. Each wait ends after one SMS or after 5 minutes, so call `start()` again after a resend or a timeout.
 
-```typescript
-import { AvasOtpAutofillModule } from '@avasapp/react-native-otp-autofill'
+Without React, use `waitForOtp`:
 
-// Listen to all events for debugging
-AvasOtpAutofillModule.addListener('onSmsReceived', (event) => {
-  console.log('📱 SMS received:', event)
-})
+```ts
+import { waitForOtp, OtpError } from '@avasapp/react-native-otp-autofill'
 
-AvasOtpAutofillModule.addListener('onTimeout', (event) => {
-  console.log('⏰ SMS timeout:', event)
-})
+const controller = new AbortController()
+try {
+  const { otp, message } = await waitForOtp({
+    length: 6,
+    signal: controller.signal,
+  })
+} catch (error) {
+  if (error instanceof OtpError && error.code === 'TIMEOUT') {
+    // no SMS within 5 minutes
+  }
+}
 
-AvasOtpAutofillModule.addListener('onError', (event) => {
-  console.log('❌ SMS error:', event)
+// later, e.g. when the screen closes
+controller.abort()
+```
+
+## API
+
+### `useOtp(options?)`
+
+| Option      | Type                     | Default |                                                                      |
+| ----------- | ------------------------ | ------- | -------------------------------------------------------------------- |
+| `autoStart` | `boolean`                | `true`  | Start listening on mount.                                            |
+| `length`    | `number`                 |         | Exact code length.                                                   |
+| `pattern`   | `RegExp`                 |         | Custom matcher, instead of `length`.                                 |
+| `onOtp`     | `(otp, message) => void` |         | Called when an SMS with a code arrives. Doesn't need to be memoized. |
+
+Returns `{ status, otp, message, error, start, stop }`. `start()` replaces any wait in progress. `stop()` cancels it and goes back to `idle`. When an SMS arrives with no matching code, `status` is `received` and `otp` is null.
+
+### `waitForOtp(options?): Promise<{ otp, message }>`
+
+Takes `length`, `pattern` and an optional `signal`. Resolves with the extracted code (or null) and the full SMS body. Only one wait runs at a time: starting a new one rejects the previous with `ABORTED`.
+
+### `getAppHash(): Promise<string | null>`
+
+The app hash, or null on platforms without SMS Retriever.
+
+### `extractOtp(message, options?): string | null`
+
+The extraction `waitForOtp` uses, exported for tests and custom flows. It ignores the app-hash line, prefers a code that follows a word like "code" or "OTP", and otherwise takes the first standalone 4 to 8 digit run. `length` changes that range to exactly `length` digits. `pattern` replaces the rules: the first capture group is the code, or the whole match if there is no group.
+
+### `isSupported: boolean`
+
+True on Android when the native module is linked.
+
+### `setLogger(fn | null)`
+
+Sends log events to `fn`. See [Logging](#logging).
+
+### `OtpError`
+
+Rejections are `OtpError`s with a `code`:
+
+| Code          | Meaning                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `UNSUPPORTED` | Not Android, or the native module isn't linked (e.g. Expo Go).                             |
+| `UNAVAILABLE` | SMS Retriever couldn't start, usually because Google Play Services is missing or outdated. |
+| `TIMEOUT`     | No matching SMS within 5 minutes.                                                          |
+| `ABORTED`     | The signal aborted, or a newer wait replaced this one.                                     |
+| `FAILED`      | Anything else; see `message`.                                                              |
+
+## Logging
+
+Pass a function to `setLogger` once at startup to send the library's events to Sentry, PostHog or any other tool. Events never include the SMS body or the code.
+
+```ts
+import * as Sentry from '@sentry/react-native'
+import { setLogger } from '@avasapp/react-native-otp-autofill'
+
+setLogger(({ level, event, message, error, data }) => {
+  if (level === 'error') {
+    Sentry.captureException(error ?? new Error(message), {
+      tags: { otp_event: event },
+      extra: data,
+    })
+  } else if (level !== 'debug') {
+    Sentry.addBreadcrumb({ category: 'otp', level, message, data })
+  }
+  posthog.capture(`otp_${event}`, { level, ...data })
 })
 ```
 
-### Performance Tips
+Each event is `{ level, event, message, error?, data? }`:
 
-1. **Use hooks at component level**: Don't call hooks conditionally or in loops
-2. **Clean up listeners**: Always call `stopListener()` when component unmounts
-3. **Avoid multiple hash fetches**: Use `refetch()` from `useGetHash` instead of creating new instances
-4. **Handle loading states**: Show loading indicators to improve user experience
+| Event                  | Level | When                                                                                                                  |
+| ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `wait.start`           | debug | `waitForOtp` started; `data.length` and `data.customPattern`                                                          |
+| `wait.received`        | info  | A code was found; `data.elapsedMs`, `data.codeLength`                                                                 |
+| `wait.no_match`        | warn  | An SMS arrived but no code matched. Usually the SMS format no longer fits `length` or `pattern`. `data.messageLength` |
+| `wait.timeout`         | warn  | No SMS within the retriever's window; `data.elapsedMs`                                                                |
+| `wait.aborted`         | debug | Stopped, unmounted or replaced by a newer wait                                                                        |
+| `wait.failed`          | error | Play Services couldn't start the retriever, or another native failure; `error` is the `OtpError`                      |
+| `wait.invalid_options` | error | Bad `length` / `pattern`                                                                                              |
+| `wait.unsupported`     | debug | Called on iOS or web, or without the native module                                                                    |
+| `hash.missing`         | warn  | `getAppHash()` found no signing certificate                                                                           |
+| `hash.failed`          | error | `getAppHash()` threw                                                                                                  |
 
-## Development
+A logger that throws is caught, so it can't break the OTP flow. Call `setLogger(null)` to stop.
 
-### Building the Module
+## Migrating from v1
 
-```bash
-# Install dependencies
-bun install
+v2 is a Turbo Module, so it no longer depends on `expo`, and it needs React Native 0.76+ with the New Architecture.
 
-# Build the module
-bun run build
+| v1                                                                           | v2                                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `useGetHash()` → `{ hash }`                                                  | `getAppHash()` (returns one hash, not an array)               |
+| `AvasOtpAutofill.getHash()` → `string[]`                                     | `getAppHash()` → `string \| null`                             |
+| `addListener('onSmsReceived')` + `startOtpListener()` + `stopSmsRetriever()` | `useOtp()` or `waitForOtp({ signal })`                        |
+| `onTimeout` / `onError` events                                               | `status` / `error` from `useOtp`, or the `OtpError` rejection |
+| `useOtpListener()`                                                           | `useOtp()`                                                    |
+| Filtering `otp.length === n` yourself                                        | `length: n`                                                   |
+| Default export, `AvasOtpAutofill`, `AvasOtpAutofillModule`                   | Named exports only                                            |
+| Deep imports like `/build/module`                                            | Import from the package root                                  |
 
-# Clean build artifacts
-bun run clean
+A v1 listener effect such as:
 
-# Run linting
-bun run lint
-
-# Run tests
-bun run test
+```ts
+useEffect(() => {
+  const sub = AvasOtpAutofill.addListener('onSmsReceived', ({ otp }) => {
+    if (otp?.length === codeLength) input.current?.setCode(otp)
+  })
+  AvasOtpAutofill.startOtpListener()
+  return () => {
+    sub.remove()
+    AvasOtpAutofill.stopSmsRetriever()
+  }
+}, [codeLength])
 ```
 
-### Publishing
+becomes:
 
-Releases are published to npm by the [Publish Package](.github/workflows/publish.yml) GitHub Actions workflow, which runs when a tag starting with `v` is pushed. To release a new version:
-
-1. Bump `version` in `package.json` and commit it.
-2. Tag that commit with the same version prefixed by `v`, and push the tag:
-   ```bash
-   git tag v1.2.3
-   git push origin v1.2.3
-   ```
-
-The workflow then:
-
-1. Installs dependencies with Bun.
-2. Fails if the tag does not match `v` plus the `package.json` version.
-3. Runs `bun run lint`, a typecheck (`./node_modules/.bin/tsc --noEmit`) and `bun run build`.
-4. Runs `npm publish --access public --provenance`, authenticated with the `NPM_TOKEN` repository secret.
-
-### Local Development
-
-For local development and testing:
-
-```bash
-# Link the package locally
-bun link
-
-# In your test project
-bun link @avasapp/react-native-otp-autofill
+```ts
+const { start } = useOtp({
+  length: codeLength,
+  onOtp: (otp) => input.current?.setCode(otp),
+})
 ```
+
+Call `start()` after a resend, which v1 code often didn't, so a resent code autofills too.
+
+## Troubleshooting
+
+- **No SMS arrives**: the last line must be exactly the hash from `getAppHash()` for the build that's running, and the message must be 140 bytes or less.
+- **`UNSUPPORTED` on Android**: the native module isn't in the build. Rebuild the app; Expo Go can't load it.
+- **Logs**: `adb logcat -s OtpAutofill SmsBroadcastReceiver`. The SMS body is never logged.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
