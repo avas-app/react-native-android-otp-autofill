@@ -41,6 +41,7 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!android/src/test",
     "!**/__tests__",
     "!**/__mocks__",
     "!**/.*"
@@ -51,6 +52,7 @@
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc",
     "test": "jest",
+    "test:android": "cd example/android && ./gradlew :avasapp_react-native-otp-autofill:testReleaseUnitTest",
     "prepare": "bob build",
     "format": "oxfmt",
     "format:check": "oxfmt --check"

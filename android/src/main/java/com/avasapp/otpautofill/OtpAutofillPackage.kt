@@ -14,7 +14,7 @@ class OtpAutofillPackage : BaseReactPackage() {
     mapOf(
       OtpAutofillModule.NAME to ReactModuleInfo(
         name = OtpAutofillModule.NAME,
-        className = OtpAutofillModule.NAME,
+        className = OtpAutofillModule::class.java.name,
         canOverrideExistingModule = false,
         needsEagerInit = false,
         isCxxModule = false,
