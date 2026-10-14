@@ -19,6 +19,7 @@
     "url": "git+https://github.com/avas-app/react-native-android-otp-autofill.git"
   },
   "license": "MIT",
+  "packageManager": "bun@1.4.2",
   "author": "Avas App <engineering@avas.dev> (https://github.com/avas-app)",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
