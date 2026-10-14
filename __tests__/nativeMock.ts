@@ -3,10 +3,16 @@ type Pending = {
   reject: (error: unknown) => void
 }
 
-// Mirrors the Kotlin module: one wait at a time, a new start or a stop rejects
-// the previous wait with CANCELLED.
+// Mirrors the Kotlin module: start and stop run in order on one queue (the main
+// thread), so they settle after the call returns. One wait at a time; a new
+// start or a stop rejects the previous wait with CANCELLED.
 export function createNativeMock() {
   let pending: Pending | null = null
+  let queue: Promise<void> = Promise.resolve()
+
+  const post = (task: () => void) => {
+    queue = queue.then(task)
+  }
 
   const cancel = () => {
     const current = pending
@@ -19,21 +25,27 @@ export function createNativeMock() {
     startListening: jest.fn(
       () =>
         new Promise<string>((resolve, reject) => {
-          cancel()
-          pending = { resolve, reject }
+          post(() => {
+            cancel()
+            pending = { resolve, reject }
+          })
         }),
     ),
-    stopListening: jest.fn(cancel),
+    stopListening: jest.fn(() => post(cancel)),
   }
 
   return {
     mock,
-    deliver(message: string) {
+    /** Waits until every posted start and stop has run. */
+    settled: () => queue,
+    async deliver(message: string) {
+      await queue
       const current = pending
       pending = null
       current?.resolve(message)
     },
-    fail(code: string) {
+    async fail(code: string) {
+      await queue
       const current = pending
       pending = null
       current?.reject(Object.assign(new Error(code), { code }))

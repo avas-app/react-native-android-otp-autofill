@@ -1,5 +1,6 @@
 import { createOtpExtractor, type ExtractOtpOptions } from './extractOtp'
 import { log } from './logger'
+import { Platform } from 'react-native'
 import native from './native'
 import { OtpError } from './OtpError'
 
@@ -18,12 +19,32 @@ export type OtpResult = {
 /** True on Android when the native module is linked. */
 export const isSupported = native != null
 
+const MODULE_MISSING_MESSAGE =
+  'The OtpAutofill native module is not linked. Rebuild the app with this library installed.'
+
+const isModuleMissing = () => Platform.OS === 'android' && native == null
+let moduleMissingLogged = false
+
+// Android without the module usually means JS was updated over the air onto a
+// binary built without this library, so say so once instead of failing quietly.
+function logModuleMissing() {
+  if (!isModuleMissing() || moduleMissingLogged) return
+  moduleMissingLogged = log({
+    level: 'error',
+    event: 'module.missing',
+    message: MODULE_MISSING_MESSAGE,
+  })
+}
+
 /**
  * The 11-character app hash the SMS must end with, or null on platforms
  * without SMS Retriever.
  */
 export async function getAppHash(): Promise<string | null> {
-  if (!native) return null
+  if (!native) {
+    logModuleMissing()
+    return null
+  }
   try {
     const hash = await native.getAppHash()
     if (hash === null) {
@@ -36,7 +57,13 @@ export async function getAppHash(): Promise<string | null> {
     return hash
   } catch (cause) {
     const error = toOtpError(cause)
-    log({ level: 'error', event: 'hash.failed', message: error.message, error })
+    log({
+      level: 'error',
+      event: 'hash.failed',
+      message: error.message,
+      error,
+      data: { code: error.code },
+    })
     throw error
   }
 }
@@ -44,7 +71,9 @@ export async function getAppHash(): Promise<string | null> {
 let activeWait: object | null = null
 
 /**
- * Waits for one SMS that ends with this app's hash, for up to 5 minutes.
+ * Waits for one SMS that ends with this app's hash. The wait ends when Android's
+ * 5-minute listening session ends, or 5 minutes after the one new session the
+ * library opens if Android closes a stale one during the wait.
  * Only one wait runs at a time: starting another aborts the previous one.
  */
 export function waitForOtp(
@@ -52,9 +81,12 @@ export function waitForOtp(
 ): Promise<OtpResult> {
   const { signal, ...extractOptions } = options
   if (!native) {
+    logModuleMissing()
     const error = new OtpError(
       'UNSUPPORTED',
-      'SMS Retriever is only available on Android',
+      isModuleMissing()
+        ? MODULE_MISSING_MESSAGE
+        : 'SMS Retriever is only available on Android',
     )
     log({ level: 'debug', event: 'wait.unsupported', message: error.message })
     return Promise.reject(error)
@@ -66,7 +98,7 @@ export function waitForOtp(
   try {
     extract = createOtpExtractor(extractOptions)
   } catch (cause) {
-    const error = cause instanceof Error ? cause : new Error(String(cause))
+    const error = cause as OtpError
     log({
       level: 'error',
       event: 'wait.invalid_options',
@@ -135,19 +167,15 @@ export function waitForOtp(
 }
 
 function logFailure(error: OtpError, elapsedMs: number) {
-  const data = { elapsedMs }
+  const data = { elapsedMs, code: error.code }
   if (error.code === 'ABORTED') {
     log({ level: 'debug', event: 'wait.aborted', message: error.message, data })
   } else if (error.code === 'TIMEOUT') {
     log({ level: 'warn', event: 'wait.timeout', message: error.message, data })
   } else {
-    log({
-      level: 'error',
-      event: 'wait.failed',
-      message: error.message,
-      error,
-      data: { ...data, code: error.code },
-    })
+    // UNAVAILABLE is a device condition (no Play Services), not a bug.
+    const level = error.code === 'UNAVAILABLE' ? 'warn' : 'error'
+    log({ level, event: 'wait.failed', message: error.message, error, data })
   }
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { isSupported, waitForOtp } from './api'
 import type { ExtractOtpOptions } from './extractOtp'
-import { OtpError } from './OtpError'
+import type { OtpError } from './OtpError'
 
 export type OtpStatus = 'idle' | 'listening' | 'received' | 'timeout' | 'error'
 
@@ -69,10 +69,13 @@ export function useOtp(options: UseOtpOptions = {}): UseOtpResult {
       (cause: unknown) => {
         if (controllerRef.current !== controller) return
         controllerRef.current = null
-        const error =
-          cause instanceof OtpError
-            ? cause
-            : new OtpError('FAILED', String(cause), { cause })
+        // waitForOtp only rejects with OtpError.
+        const error = cause as OtpError
+        // Another wait replaced this one, which is not an error.
+        if (error.code === 'ABORTED') {
+          setState(IDLE)
+          return
+        }
         setState({
           ...IDLE,
           status: error.code === 'TIMEOUT' ? 'timeout' : 'error',
