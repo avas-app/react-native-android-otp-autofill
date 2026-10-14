@@ -19,6 +19,7 @@
     "url": "git+https://github.com/avas-app/react-native-android-otp-autofill.git"
   },
   "license": "MIT",
+  "packageManager": "bun@1.4.2",
   "author": "Avas App <engineering@avas.dev> (https://github.com/avas-app)",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -41,6 +42,7 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!android/src/test",
     "!**/__tests__",
     "!**/__mocks__",
     "!**/.*"
@@ -51,6 +53,7 @@
     "lint": "oxlint --deny-warnings",
     "typecheck": "tsc",
     "test": "jest",
+    "test:android": "cd example/android && ./gradlew :avasapp_react-native-otp-autofill:testReleaseUnitTest",
     "prepare": "bob build",
     "format": "oxfmt",
     "format:check": "oxfmt --check"

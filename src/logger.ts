@@ -11,6 +11,7 @@ export type OtpLogEventName =
   | 'wait.failed'
   | 'wait.invalid_options'
   | 'wait.unsupported'
+  | 'module.missing'
   | 'hash.missing'
   | 'hash.failed'
 
@@ -27,13 +28,16 @@ export type OtpLogger = (event: OtpLogEvent) => void
 
 let logger: OtpLogger | null = null
 
-/** Sends the library's log events to `fn`, or stops sending them with null. */
-export function setLogger(fn: OtpLogger | null): void {
+/** Sends log events to `fn`; the returned function removes it unless another logger replaced it. */
+export function setLogger(fn: OtpLogger | null): () => void {
   logger = fn
+  return () => {
+    if (logger === fn) logger = null
+  }
 }
 
-export function log(event: OtpLogEvent): void {
-  if (!logger) return
+export function log(event: OtpLogEvent): boolean {
+  if (!logger) return false
   try {
     logger(event)
   } catch (error) {
@@ -43,4 +47,5 @@ export function log(event: OtpLogEvent): void {
       console.warn('[react-native-otp-autofill] logger threw', error)
     }
   }
+  return true
 }

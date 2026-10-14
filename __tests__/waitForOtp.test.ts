@@ -14,13 +14,13 @@ beforeEach(() => jest.clearAllMocks())
 describe('waitForOtp', () => {
   it('resolves with the message and extracted code', async () => {
     const wait = waitForOtp()
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await expect(wait).resolves.toEqual({ message: SMS, otp: '482913' })
   })
 
   it('resolves with a null code when none matches', async () => {
     const wait = waitForOtp({ length: 4 })
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await expect(wait).resolves.toEqual({ message: SMS, otp: null })
   })
 
@@ -32,7 +32,7 @@ describe('waitForOtp', () => {
     ['SOMETHING_ELSE', 'FAILED'],
   ])('maps native %s to %s', async (nativeCode, code) => {
     const wait = waitForOtp()
-    native.fail(nativeCode)
+    await native.fail(nativeCode)
     await expect(wait).rejects.toMatchObject({ name: 'OtpError', code })
   })
 
@@ -54,7 +54,10 @@ describe('waitForOtp', () => {
   })
 
   it('rejects invalid options without starting', async () => {
-    await expect(waitForOtp({ length: -1 })).rejects.toThrow(RangeError)
+    await expect(waitForOtp({ length: -1 })).rejects.toMatchObject({
+      name: 'OtpError',
+      code: 'INVALID_OPTIONS',
+    })
     expect(native.mock.startListening).not.toHaveBeenCalled()
   })
 
@@ -62,7 +65,7 @@ describe('waitForOtp', () => {
     const first = waitForOtp()
     const second = waitForOtp()
     await expect(first).rejects.toMatchObject({ code: 'ABORTED' })
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await expect(second).resolves.toMatchObject({ otp: '482913' })
   })
 
@@ -73,15 +76,16 @@ describe('waitForOtp', () => {
     controller.abort()
     await expect(first).rejects.toMatchObject({ code: 'ABORTED' })
     expect(native.mock.stopListening).not.toHaveBeenCalled()
+    await native.settled()
     expect(native.listening).toBe(true)
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await expect(second).resolves.toMatchObject({ otp: '482913' })
   })
 
   it('ignores abort after settling', async () => {
     const controller = new AbortController()
     const wait = waitForOtp({ signal: controller.signal })
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await wait
     controller.abort()
     expect(native.mock.stopListening).not.toHaveBeenCalled()

@@ -4,6 +4,7 @@ export type OtpErrorCode =
   | 'TIMEOUT'
   | 'ABORTED'
   | 'FAILED'
+  | 'INVALID_OPTIONS'
 
 export class OtpError extends Error {
   readonly code: OtpErrorCode

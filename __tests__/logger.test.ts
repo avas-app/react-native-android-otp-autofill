@@ -24,7 +24,7 @@ const names = () => events.map((e) => e.event)
 describe('setLogger', () => {
   it('logs the start and the received code', async () => {
     const wait = waitForOtp({ length: 6 })
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await wait
     expect(names()).toEqual(['wait.start', 'wait.received'])
     expect(events[0]).toMatchObject({
@@ -39,7 +39,7 @@ describe('setLogger', () => {
 
   it('warns when an SMS has no matching code', async () => {
     const wait = waitForOtp({ length: 4 })
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await wait
     expect(events[1]).toMatchObject({
       level: 'warn',
@@ -50,7 +50,7 @@ describe('setLogger', () => {
 
   it('never includes the SMS body or the code', async () => {
     const wait = waitForOtp()
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await wait
     const serialized = JSON.stringify(events)
     expect(serialized).not.toContain('482913')
@@ -59,7 +59,7 @@ describe('setLogger', () => {
 
   it('logs a timeout with the elapsed time', async () => {
     const wait = waitForOtp()
-    native.fail('TIMEOUT')
+    await native.fail('TIMEOUT')
     await expect(wait).rejects.toMatchObject({ code: 'TIMEOUT' })
     expect(events[1]).toMatchObject({
       level: 'warn',
@@ -70,12 +70,23 @@ describe('setLogger', () => {
 
   it('logs native failures as errors with the OtpError', async () => {
     const wait = waitForOtp()
-    native.fail('UNAVAILABLE')
-    await expect(wait).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    await native.fail('FAILED')
+    await expect(wait).rejects.toMatchObject({ code: 'FAILED' })
     expect(events[1]).toMatchObject({
       level: 'error',
       event: 'wait.failed',
-      error: { name: 'OtpError', code: 'UNAVAILABLE' },
+      error: { name: 'OtpError', code: 'FAILED' },
+      data: { code: 'FAILED' },
+    })
+  })
+
+  it('warns, not errors, when Play Services is unavailable', async () => {
+    const wait = waitForOtp()
+    await native.fail('UNAVAILABLE')
+    await expect(wait).rejects.toMatchObject({ code: 'UNAVAILABLE' })
+    expect(events[1]).toMatchObject({
+      level: 'warn',
+      event: 'wait.failed',
       data: { code: 'UNAVAILABLE' },
     })
   })
@@ -89,12 +100,14 @@ describe('setLogger', () => {
   })
 
   it('logs invalid options as errors', async () => {
-    await expect(waitForOtp({ length: 0 })).rejects.toThrow(RangeError)
+    await expect(waitForOtp({ length: 0 })).rejects.toMatchObject({
+      code: 'INVALID_OPTIONS',
+    })
     expect(events).toEqual([
       expect.objectContaining({
         level: 'error',
         event: 'wait.invalid_options',
-        error: expect.any(RangeError),
+        error: expect.objectContaining({ code: 'INVALID_OPTIONS' }),
       }),
     ])
   })
@@ -118,7 +131,7 @@ describe('setLogger', () => {
       throw new Error('logger down')
     })
     const wait = waitForOtp()
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await expect(wait).resolves.toMatchObject({ otp: '482913' })
     expect(warn).toHaveBeenCalled()
     warn.mockRestore()
@@ -127,8 +140,29 @@ describe('setLogger', () => {
   it('stops logging after setLogger(null)', async () => {
     setLogger(null)
     const wait = waitForOtp()
-    native.deliver(SMS)
+    await native.deliver(SMS)
     await wait
     expect(events).toEqual([])
+  })
+
+  it('unsubscribes only its own logger', async () => {
+    const first: OtpLogEvent[] = []
+    const second: OtpLogEvent[] = []
+    const stopFirst = setLogger((e) => first.push(e))
+    const stopSecond = setLogger((e) => second.push(e))
+
+    stopFirst()
+    const wait = waitForOtp()
+    await native.deliver(SMS)
+    await wait
+    expect(first).toEqual([])
+    expect(second).not.toEqual([])
+
+    stopSecond()
+    second.length = 0
+    const next = waitForOtp()
+    await native.deliver(SMS)
+    await next
+    expect(second).toEqual([])
   })
 })

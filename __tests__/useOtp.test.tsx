@@ -14,6 +14,11 @@ const SMS = 'Your code is 482913\nFA+9qCX9VSu'
 
 beforeEach(() => jest.clearAllMocks())
 
+const settle = () =>
+  act(async () => {
+    await native.settled()
+  })
+
 describe('useOtp', () => {
   it('starts on mount and reports the code', async () => {
     const onOtp = jest.fn()
@@ -62,16 +67,52 @@ describe('useOtp', () => {
     await act(async () => result.current.start())
     // The first wait's ABORTED rejection must not clobber the new state.
     expect(result.current.status).toBe('listening')
+    await settle()
     expect(native.listening).toBe(true)
 
     await act(async () => native.deliver(SMS))
     expect(result.current.status).toBe('received')
   })
 
+  it('goes idle, with no error, when another wait replaces it', async () => {
+    const first = await renderHook(() => useOtp())
+    await settle()
+    const second = await renderHook(() => useOtp())
+    await settle()
+
+    expect(first.result.current).toMatchObject({ status: 'idle', error: null })
+    expect(second.result.current.status).toBe('listening')
+
+    await act(async () => native.deliver(SMS))
+    expect(first.result.current.status).toBe('idle')
+    expect(second.result.current.otp).toBe('482913')
+  })
+
+  it('listens again when start() is called after being replaced', async () => {
+    const first = await renderHook(() => useOtp())
+    await settle()
+    await renderHook(() => useOtp())
+    await settle()
+
+    await act(async () => first.result.current.start())
+    await settle()
+    expect(first.result.current.status).toBe('listening')
+    await act(async () => native.deliver(SMS))
+    expect(first.result.current.otp).toBe('482913')
+  })
+
+  it('reports invalid options as an error', async () => {
+    const { result } = await renderHook(() => useOtp({ length: 0 }))
+    await settle()
+    expect(result.current.status).toBe('error')
+    expect(result.current.error).toMatchObject({ code: 'INVALID_OPTIONS' })
+  })
+
   it('goes idle on stop() and ignores the cancellation', async () => {
     const { result } = await renderHook(() => useOtp())
     await act(async () => result.current.stop())
     expect(result.current).toMatchObject({ status: 'idle', error: null })
+    await settle()
     expect(native.listening).toBe(false)
   })
 
@@ -79,6 +120,7 @@ describe('useOtp', () => {
     const { unmount } = await renderHook(() => useOtp())
     await act(async () => unmount())
     expect(native.mock.stopListening).toHaveBeenCalled()
+    await settle()
     expect(native.listening).toBe(false)
   })
 
@@ -119,16 +161,19 @@ describe('useOtp autoStart changes', () => {
 
     await rerender({ autoStart: true })
     expect(result.current.status).toBe('listening')
+    await settle()
     expect(native.listening).toBe(true)
 
     await rerender({ autoStart: false })
     expect(result.current.status).toBe('idle')
+    await settle()
     expect(native.listening).toBe(false)
   })
 
   it('keeps listening through a StrictMode remount', async () => {
     const { result } = await renderHook(() => useOtp(), { wrapper: StrictMode })
     expect(result.current.status).toBe('listening')
+    await settle()
     expect(native.listening).toBe(true)
 
     await act(async () => native.deliver(SMS))

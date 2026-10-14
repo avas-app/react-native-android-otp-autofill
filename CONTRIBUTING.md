@@ -11,6 +11,7 @@ bun run lint         # oxlint
 bun run format       # oxfmt
 bun run typecheck
 bun run build        # bob build -> lib/
+bun run test:android # JUnit for SmsSession, through example/android (needs example/ installed)
 ```
 
 ## Example app
@@ -23,7 +24,7 @@ bun install
 bun run android
 ```
 
-The app shows its app hash. Send an SMS that ends with it, from another phone or the emulator's extended controls:
+The app shows its app hash. Send an SMS that ends with it, from another phone, the emulator's extended controls, or `adb emu sms send 5555 "Your code is 482913 <hash>"` (the emulator console is line-based, so keep the hash on the same line):
 
 ```
 Your code is 482913
@@ -39,9 +40,9 @@ Press **Start**, then send the SMS; the status should go to `received` with the 
 - `src/native.ts` / `src/native.android.ts`: the module on Android, null elsewhere.
 - `src/api.ts`: `getAppHash`, `waitForOtp`, `isSupported`.
 - `src/useOtp.ts`, `src/extractOtp.ts`, `src/OtpError.ts`.
-- `android/src/main/java/com/avasapp/otpautofill/`: `OtpAutofillModule.kt` (start/stop and the pending promise), `SmsBroadcastReceiver.kt`, `AppSignatureHelper.kt`, `OtpAutofillPackage.kt`.
+- `android/src/main/java/com/avasapp/otpautofill/`: `SmsSession.kt` (the SMS Retriever session and the pending wait, plain Kotlin), `OtpAutofillModule.kt` (the thin Android adapter), `SmsBroadcastReceiver.kt`, `AppSignatureHelper.kt`, `OtpAutofillPackage.kt`.
 
-Listener lifecycle has caused bugs before. If you change `waitForOtp`, `useOtp` or the module, cover the race in `__tests__/` (`nativeMock.ts` mirrors the native start/stop behaviour) and test on a device.
+Listener lifecycle has caused bugs before. If you change `waitForOtp` or `useOtp`, cover the race in `__tests__/` (`nativeMock.ts` mirrors the native start/stop behaviour). If you change `SmsSession.kt`, cover it in `android/src/test/`. Test either on a device.
 
 ## Style and commits
 
