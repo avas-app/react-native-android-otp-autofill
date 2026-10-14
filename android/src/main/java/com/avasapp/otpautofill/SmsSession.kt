@@ -6,25 +6,18 @@ sealed interface SmsResult {
   data class Error(val message: String) : SmsResult
 }
 
-/** What [SmsSession] needs from Android, so the session rules can run in plain JVM tests. */
+// Android calls sit behind this interface so the session rules run in plain JVM tests.
 interface SmsSessionHost<W> {
-  /** Starts hearing SMS Retriever broadcasts; may throw. */
   fun registerReceiver()
   fun unregisterReceiver()
-  /** Calls startSmsRetriever(), which may throw. [onFailure] reports an async failure. */
   fun startRetriever(onFailure: (Exception) -> Unit)
-  /** Runs [task] after [delayMs] and returns a function that cancels it. */
   fun schedule(delayMs: Long, task: () -> Unit): () -> Unit
   fun resolve(wait: W, body: String)
   fun reject(wait: W, code: String, message: String, cause: Exception?)
   fun log(message: String)
 }
 
-/**
- * Android gives an app one SMS Retriever session, 5 minutes from the first start, and
- * closes an expired one lazily. This tracks that session and the one pending wait.
- * Not thread-safe: call it from one thread. [clock] must be monotonic, in milliseconds.
- */
+// Android gives an app one SMS Retriever session, 5 minutes from the first start, and closes an expired one lazily.
 class SmsSession<W : Any>(
   private val clock: () -> Long,
   private val host: SmsSessionHost<W>,
@@ -34,7 +27,6 @@ class SmsSession<W : Any>(
   private var reopened = false
   private var cancelDeadline: (() -> Unit)? = null
 
-  // The receiver is registered exactly while a session is open.
   private var open = false
   private var sessionStart = 0L
   private var generation = 0
@@ -48,8 +40,7 @@ class SmsSession<W : Any>(
     } else if (clock() - sessionStart < SESSION_MS) {
       arm()
     } else {
-      // Past its window, so Play Services may or may not still hold it: starting
-      // again is a no-op if it does and a real start if it doesn't.
+      // A no-op if Play Services still holds the expired session, a real start if not.
       begin()
     }
   }
@@ -58,7 +49,7 @@ class SmsSession<W : Any>(
     pending?.let { settle(it) { w -> host.reject(w, E_CANCELLED, "Stopped before an SMS arrived", null) } }
   }
 
-  /** The JS runtime is going away: drop the wait without rejecting it. */
+  // The JS runtime is going away, so there is nothing to reject to.
   fun invalidate() {
     pending = null
     cancelDeadline?.invoke()
@@ -73,7 +64,6 @@ class SmsSession<W : Any>(
       is SmsResult.Message ->
         if (wait == null) host.log("Dropped an SMS with no pending wait")
         else settle(wait) { host.resolve(it, result.body) }
-      // The old session just closed: a wait still inside its window gets one fresh session.
       SmsResult.Timeout ->
         if (wait == null) Unit
         else if (reopened || clock() >= deadlineAt) timeOut(wait)
@@ -124,8 +114,7 @@ class SmsSession<W : Any>(
     pending?.let { settle(it) { w -> host.reject(w, code, "$message: ${e.message}", e) } }
   }
 
-  // Settles [wait] only if it is still the pending one, so a callback from a
-  // cancelled or superseded start can't touch the current one.
+  // A callback from a cancelled or superseded start must not settle the current wait.
   private fun settle(wait: W, action: (W) -> Unit) {
     if (pending !== wait) return
     pending = null

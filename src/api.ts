@@ -25,8 +25,7 @@ const MODULE_MISSING_MESSAGE =
 const isModuleMissing = () => Platform.OS === 'android' && native == null
 let moduleMissingLogged = false
 
-// Android without the module usually means JS was updated over the air onto a
-// binary built without this library, so say so once instead of failing quietly.
+// Usually JS shipped over the air onto a binary built without this library.
 function logModuleMissing() {
   if (!isModuleMissing() || moduleMissingLogged) return
   moduleMissingLogged = log({
@@ -70,12 +69,7 @@ export async function getAppHash(): Promise<string | null> {
 
 let activeWait: object | null = null
 
-/**
- * Waits for one SMS that ends with this app's hash. The wait ends when Android's
- * 5-minute listening session ends, or 5 minutes after the one new session the
- * library opens if Android closes a stale one during the wait.
- * Only one wait runs at a time: starting another aborts the previous one.
- */
+/** Waits for one SMS ending with this app's hash; starting another wait aborts this one. */
 export function waitForOtp(
   options: WaitForOtpOptions = {},
 ): Promise<OtpResult> {

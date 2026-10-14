@@ -10,8 +10,7 @@ export type ExtractOtpOptions = {
   pattern?: RegExp
 }
 
-// SMS Retriever messages end with the 11-char app hash, on its own line or not.
-// Strip it first: for some signing keys it starts with digits that would pass as a code.
+// The app hash can start with digits that would pass as a code.
 const TRAILING_HASH = /\s+[A-Za-z0-9+/]{11}\s*$/
 
 /** Validates the options up front and returns a reusable extractor. */
@@ -45,8 +44,7 @@ export function createOtpExtractor(
     }
   }
 
-  // A whole token: no letters or digits next to it, and no joiner that makes it
-  // part of a bigger number such as 1500.00, 1,500 or 482-913.
+  // Not part of a bigger token such as 1500.00, 1,500, 482-913 or A1234.
   const digits = length === undefined ? '\\d{4,8}' : `\\d{${length}}`
   const candidate = `(?<!\\w)(?<!\\d[.,-])(${digits})(?!\\w)(?![.,-]\\d)`
   const standalone = new RegExp(candidate, 'g')
@@ -56,8 +54,7 @@ export function createOtpExtractor(
     const found = new Set(Array.from(body.matchAll(standalone), (m) => m[1]!))
     if (found.size !== 1) return null
     const code = [...found][0]!
-    // Any other long digit run (any script, glued or not) could be the real code
-    // in a form we can't read, so a lone rival must not win by default.
+    // Another long digit run may be the real code in a form we can't read.
     const rival = body.match(/\p{Nd}{3,}/gu)?.some((run) => run !== code)
     return rival ? null : code
   }

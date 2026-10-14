@@ -275,14 +275,14 @@ class SmsSessionTest {
 
   @Test
   fun aStaleTimeoutWithNoOpenSessionDoesNothing() {
-    session.onResult(SmsResult.Timeout) // a new instance after a JS reload
+    session.onResult(SmsResult.Timeout)
     assertTrue(host.events.isEmpty())
     assertEquals(0, host.registered)
     assertEquals(0, host.unregistered)
 
     session.start("a")
     session.onResult(SmsResult.Error("status 6"))
-    session.onResult(SmsResult.Timeout) // the old session's late broadcast
+    session.onResult(SmsResult.Timeout)
     assertEquals(listOf("a rejected FAILED"), host.events)
     assertEquals(1, host.registered)
   }

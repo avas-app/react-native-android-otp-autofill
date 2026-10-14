@@ -69,9 +69,8 @@ export function useOtp(options: UseOtpOptions = {}): UseOtpResult {
       (cause: unknown) => {
         if (controllerRef.current !== controller) return
         controllerRef.current = null
-        // waitForOtp only rejects with OtpError.
         const error = cause as OtpError
-        // Another wait replaced this one, which is not an error.
+        // Another wait replaced this one.
         if (error.code === 'ABORTED') {
           setState(IDLE)
           return

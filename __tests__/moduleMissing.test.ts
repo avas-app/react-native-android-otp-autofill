@@ -18,7 +18,6 @@ describe('Android without the native module', () => {
   })
 
   it('says the module is not linked and logs it once', async () => {
-    // No logger yet: this must not use up the one-time module.missing event.
     await expect(getAppHash()).resolves.toBeNull()
     const events: OtpLogEvent[] = []
     const stop = setLogger((e) => events.push(e))

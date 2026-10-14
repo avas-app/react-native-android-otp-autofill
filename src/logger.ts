@@ -28,10 +28,7 @@ export type OtpLogger = (event: OtpLogEvent) => void
 
 let logger: OtpLogger | null = null
 
-/**
- * Sends the library's log events to `fn`, or stops sending them with null.
- * Returns a function that stops `fn`, unless another logger has replaced it.
- */
+/** Sends log events to `fn`; the returned function removes it unless another logger replaced it. */
 export function setLogger(fn: OtpLogger | null): () => void {
   logger = fn
   return () => {
@@ -39,7 +36,6 @@ export function setLogger(fn: OtpLogger | null): () => void {
   }
 }
 
-/** Returns whether a logger was there to receive the event. */
 export function log(event: OtpLogEvent): boolean {
   if (!logger) return false
   try {

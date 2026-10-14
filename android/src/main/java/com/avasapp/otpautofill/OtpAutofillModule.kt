@@ -13,8 +13,7 @@ import com.google.android.gms.auth.api.phone.SmsRetriever
 class OtpAutofillModule(reactContext: ReactApplicationContext) :
   NativeOtpAutofillSpec(reactContext) {
 
-  // The session is only touched on the main thread, where Play Services
-  // callbacks and the receiver also run, so start/stop can't race.
+  // Play Services callbacks and the receiver run on the main thread, so the session lives there too.
   private val mainHandler = Handler(Looper.getMainLooper())
   private val session = SmsSession(SystemClock::elapsedRealtime, Host())
 

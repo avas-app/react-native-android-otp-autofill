@@ -3,9 +3,7 @@ type Pending = {
   reject: (error: unknown) => void
 }
 
-// Mirrors the Kotlin module: start and stop run in order on one queue (the main
-// thread), so they settle after the call returns. One wait at a time; a new
-// start or a stop rejects the previous wait with CANCELLED.
+// Like the Kotlin module, start and stop settle in order after the call returns, as on the main thread.
 export function createNativeMock() {
   let pending: Pending | null = null
   let queue: Promise<void> = Promise.resolve()
@@ -36,7 +34,6 @@ export function createNativeMock() {
 
   return {
     mock,
-    /** Waits until every posted start and stop has run. */
     settled: () => queue,
     async deliver(message: string) {
       await queue

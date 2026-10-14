@@ -75,7 +75,6 @@ jobs:
           NAME="$(node -p "require('./package.json').name")"
           LATEST="$(npm view "$NAME" dist-tags.latest)"
           NEXT="$(npm view "$NAME" dist-tags.next)"
-          # Prints "yes" when $1 is a higher x.y.z than $2.
           higher() {
             node -e '
               const [a, b] = process.argv.slice(1).map((v) => v.split("-")[0].split(".").map(Number))
@@ -85,8 +84,7 @@ jobs:
           }
           MAJOR="${PKG_VERSION%%.*}"
           NEXT_MAJOR="${NEXT%%.*}"
-          # Without --tag, npm would make any published version the `latest` one.
-          # A release of an older major must not take `latest` or `next` from a newer one.
+          # Without --tag npm makes every publish `latest`; an older major must not take `latest` or `next`.
           case "$PKG_VERSION" in
             *-*)
               if [ "$MAJOR" -ge "${LATEST%%.*}" ] && [ "$MAJOR" -ge "${NEXT_MAJOR:-0}" ]; then TAG=next; else TAG="v$MAJOR-next"; fi
