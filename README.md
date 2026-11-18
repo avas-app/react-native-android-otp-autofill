@@ -17,10 +17,10 @@ On iOS and web the library does nothing: `isSupported` is false and `waitForOtp`
 ## Installation
 
 ```sh
-npm install @avasapp/react-native-otp-autofill@next
+npm install @avasapp/react-native-otp-autofill
 ```
 
-v2 is in beta on the `next` tag. `latest` is still v1, which has a different API.
+v2 has a different API from v1; see [Migrating from v1](#migrating-from-v1).
 
 Bare React Native apps autolink it. Expo apps need a development build (`npx expo prebuild` or EAS Build); it does not work in Expo Go. No config plugin or permission is needed.
 
